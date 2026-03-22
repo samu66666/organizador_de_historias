@@ -3358,5 +3358,14 @@ document.addEventListener('click', function(e){
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
 </script>
+    <div id="authBox" style="padding:16px; border:1px solid #ccc; margin:16px 0;">
+  <h2>Cuenta</h2>
+  <input id="email" type="email" placeholder="Correo" style="display:block; margin:8px 0; width:300px;">
+  <input id="password" type="password" placeholder="Contraseña" style="display:block; margin:8px 0; width:300px;">
+  <button id="btnRegistro">Crear cuenta</button>
+  <button id="btnLogin">Iniciar sesión</button>
+  <button id="btnLogout">Cerrar sesión</button>
+  <p id="authEstado"></p>
+</div>
 </body>
 </html>
