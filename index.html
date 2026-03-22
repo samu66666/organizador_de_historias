@@ -1,0 +1,3340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Organizador Historia + Etiquetas Globales Visual</title>
+<meta name="permissions" content="WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET">
+<link rel="manifest" href="manifest.json">
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f0f0; color:#222; }
+header { background:#222; color:white; padding:10px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; }
+header h1 { margin:0; font-size:1.2em; }
+header .nav-buttons { display:flex; flex-wrap:wrap; gap:6px; }
+header button { margin:0; padding:7px 10px; border:none; border-radius:6px; background:#444; color:white; cursor:pointer; }
+header button:hover { background:#666; }
+
+#main { padding:10px; display:flex; flex-direction:column; gap:10px; }
+.page-box { background:white; border-radius:10px; padding:12px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+
+#story-container textarea,
+.block-content textarea,
+.idea-output,
+.character-card textarea,
+.world-card textarea,
+.organizer-card textarea,
+.relation-card textarea,
+.timeline-card textarea,
+.arc-card textarea {
+    width:100%;
+    border:1px solid #ccc;
+    border-radius:6px;
+    padding:8px;
+    font-size:1em;
+    box-sizing:border-box;
+    resize:vertical;
+    outline:none;
+    font-family: Arial, sans-serif;
+}
+
+#story-container textarea { height:400px; }
+
+.story-layout {
+    display:grid;
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap:12px;
+    align-items:start;
+}
+.story-editor textarea {
+    height:600px;
+}
+.story-sidebar {
+    background:#fafafa;
+    border:1px solid #ddd;
+    border-radius:10px;
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    position:sticky;
+    top:10px;
+}
+.story-context-section {
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.story-context-section label {
+    font-weight:bold;
+}
+.story-sidebar select {
+    width:100%;
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    box-sizing:border-box;
+}
+.story-characters-list {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+.story-character-pill {
+    background:#ececec;
+    padding:7px 10px;
+    border-radius:999px;
+    cursor:pointer;
+    border:1px solid #ddd;
+    user-select:none;
+}
+.story-character-pill.active {
+    background:#222;
+    color:white;
+    border-color:#222;
+}
+.story-info-box {
+    background:white;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:10px;
+    min-height:180px;
+    white-space:pre-wrap;
+    line-height:1.45;
+}
+.story-quick-actions {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+}
+.story-quick-actions button {
+    background:#444;
+    color:white;
+    border:none;
+    border-radius:6px;
+    padding:7px 10px;
+    cursor:pointer;
+}
+.story-quick-actions button:hover { background:#666; }
+
+#chapter-panel, #project-panel {
+    position:fixed;
+    top:60px;
+    left:50%;
+    transform:translateX(-50%);
+    background:white;
+    border:1px solid #ccc;
+    border-radius:8px;
+    padding:10px;
+    max-height:400px;
+    overflow-y:auto;
+    display:none;
+    z-index:1000;
+    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+
+#project-panel { min-width:320px; }
+
+.project-item, .chapter-item {
+    display:flex;
+    justify-content:space-between;
+    padding:6px;
+    border-bottom:1px solid #eee;
+    cursor:pointer;
+    align-items:center;
+    gap:8px;
+}
+.project-item:hover, .chapter-item:hover { background:#f5f5f5; }
+.project-item.active { background:#e3f2fd; font-weight:bold; }
+
+.block { margin:5px 0; border-radius:6px; overflow:hidden; }
+.block-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+    padding:5px 10px;
+    border-radius:6px;
+}
+.block-header:hover { background:#f0f0f0; }
+.block-header span.tag {
+    font-weight:bold;
+    padding:2px 6px;
+    border-radius:4px;
+    color:white;
+    display:flex;
+    align-items:center;
+    gap:5px;
+}
+.block-content { padding:5px 10px; display:block; }
+.controls { margin-top:5px; display:flex; gap:5px; flex-wrap:wrap; }
+.controls button, .small-btn {
+    padding:5px 8px;
+    font-size:0.9em;
+    border:none;
+    border-radius:6px;
+    background:#444;
+    color:white;
+    cursor:pointer;
+}
+.controls button:hover, .small-btn:hover { background:#666; }
+
+.folder-icon { width:16px; height:16px; display:inline-block; vertical-align:middle; }
+.folder-open::before { content: "📂"; }
+.folder-closed::before { content: "📁"; }
+.indent { margin-left:20px; }
+
+.section-title {
+    margin:0 0 10px 0;
+    font-size:1.15em;
+}
+
+.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:12px;
+    align-items:center;
+}
+
+.toolbar select, .toolbar input, .toolbar textarea, .toolbar button,
+.inline-input, .inline-select {
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    box-sizing:border-box;
+    font-size:1em;
+}
+
+.toolbar button {
+    background:#333;
+    color:white;
+    border:none;
+    cursor:pointer;
+}
+.toolbar button:hover { background:#555; }
+
+.idea-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap:10px;
+    margin-bottom:12px;
+}
+.idea-output {
+    min-height:180px;
+    line-height:1.5;
+}
+
+.card-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap:12px;
+}
+
+.character-card, .world-card, .relation-card, .timeline-card, .arc-card {
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:10px;
+    padding:12px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.06);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.organizer-top {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:12px;
+    align-items:center;
+}
+.organizer-board-list {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:12px;
+}
+.organizer-board-pill {
+    background:#ececec;
+    padding:8px 10px;
+    border-radius:999px;
+    cursor:pointer;
+    border:1px solid #ddd;
+}
+.organizer-board-pill.active {
+    background:#222;
+    color:white;
+    border-color:#222;
+}
+.organizer-columns {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap:12px;
+}
+.organizer-column {
+    background:#f7f7f7;
+    border-radius:10px;
+    padding:10px;
+    border:1px solid #ddd;
+    min-height:200px;
+}
+.organizer-column-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+}
+.organizer-column h3 {
+    margin:0;
+    font-size:1em;
+}
+.organizer-card {
+    background:white;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:10px;
+    margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.05);
+}
+.organizer-card input[type="text"] {
+    width:100%;
+    box-sizing:border-box;
+    padding:7px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    margin-bottom:8px;
+}
+.organizer-card textarea { min-height:80px; }
+
+.relations-layout {
+    display:grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap:12px;
+}
+.relation-tree-box {
+    background:#fafafa;
+    border:1px solid #ddd;
+    border-radius:10px;
+    padding:12px;
+}
+.relation-node {
+    border-left:4px solid #444;
+    padding:8px 10px;
+    background:white;
+    border-radius:8px;
+    margin-bottom:10px;
+}
+.relation-link {
+    margin:6px 0 6px 16px;
+    padding:8px;
+    background:#f2f2f2;
+    border-radius:8px;
+    border:1px solid #ddd;
+}
+
+.timeline-list {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.timeline-row {
+    display:grid;
+    grid-template-columns: 110px 1fr;
+    gap:10px;
+    align-items:start;
+}
+.timeline-marker {
+    background:#222;
+    color:white;
+    padding:8px 10px;
+    border-radius:8px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.arc-beat {
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:10px;
+    background:#fafafa;
+    margin-top:8px;
+}
+.arc-beat textarea { min-height:70px; }
+
+.muted {
+    color:#666;
+    font-size:0.95em;
+}
+
+#book-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 10px;
+    box-sizing: border-box;
+}
+#book-box {
+    background: white;
+    width: min(900px, 100%);
+    max-height: 90vh;
+    border-radius: 10px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#book-header {
+    background: #222;
+    color: white;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+#book-header h2 {
+    margin: 0;
+    font-size: 1.1em;
+}
+#book-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+#book-actions button {
+    background: #444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+#book-actions button:hover { background:#666; }
+#book-text {
+    width: 100%;
+    height: 70vh;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 14px;
+    box-sizing: border-box;
+    font-size: 1em;
+    line-height: 1.5;
+    font-family: Arial, sans-serif;
+}
+
+
+.map-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+}
+.map-canvas-box {
+    background: linear-gradient(180deg, #a9d8ff 0%, #78bdf6 100%);
+    border: 1px solid #cfd8dc;
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 700px;
+    position: relative;
+}
+#world-map-svg {
+    width: 100%;
+    height: 700px;
+    display: block;
+}
+.map-sidebar {
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 12px;
+    max-height: 700px;
+    overflow-y: auto;
+}
+.map-place-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.map-place-card input,
+.map-place-card select {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+.map-label {
+    font-size: 14px;
+    font-weight: bold;
+    fill: #1f1f1f;
+    pointer-events: none;
+}
+.map-help {
+    margin-bottom: 10px;
+    background: #f2f7fb;
+    border: 1px solid #dbe8f3;
+    border-radius: 10px;
+    padding: 10px;
+}
+.map-selected {
+    outline: 3px solid rgba(0,0,0,0.08);
+}
+
+.hidden { display:none !important; }
+
+.card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.inline-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1em;
+    font-family: Arial, sans-serif;
+    margin-bottom: 4px;
+}
+
+.inline-select {
+    padding: 7px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1em;
+    font-family: Arial, sans-serif;
+}
+
+@media (max-width:900px){
+    #main { flex-direction:column; }
+    .relations-layout { grid-template-columns: 1fr; }
+    .timeline-row { grid-template-columns: 1fr; }
+    .story-layout { grid-template-columns: 1fr; }
+    .story-editor textarea { height:420px; }
+    .story-sidebar { position:static; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Organizador Historia Visual</h1>
+    <div class="nav-buttons">
+        <button onclick="toggleProjectPanel()">Proyectos</button>
+        <button onclick="toggleChapterPanel()">Capítulos</button>
+        <button onclick="showPage('story')">Historia</button>
+        <button onclick="showPage('tags')">Etiquetas</button>
+        <button onclick="showPage('ideas')">Ideas</button>
+        <button onclick="showPage('characters')">Personajes</button>
+        <button onclick="showPage('relations')">Relaciones</button>
+        <button onclick="showPage('timeline')">Línea temporal</button>
+        <button onclick="showPage('arcs')">Mapa de arco</button>
+        <button onclick="showPage('world')">Mundo</button>
+        <button onclick="showPage('map')">Mapa</button>
+        <button onclick="showPage('organizer')">Organizador</button>
+        <button onclick="createBlock(globalTags)">Nueva etiqueta</button>
+        <button onclick="openTransferModal('export')">Copiar proyecto</button>
+        <button onclick="openTransferModal('import')">Pegar proyecto</button>
+        <button onclick="openTransferModal('analyze')">Analizar texto</button>
+        <button onclick="openBook()">Libro</button>
+    </div>
+</header>
+
+<div id="chapter-panel">
+    <button class="small-btn" onclick="createChapter()">Crear nuevo capítulo</button>
+    <div id="chapter-list"></div>
+</div>
+
+<div id="project-panel">
+    <button class="small-btn" onclick="createProject()">Crear nuevo proyecto</button>
+    <div id="project-list"></div>
+</div>
+
+<div id="main">
+
+    <div id="story-container" class="page-box">
+        <h2 id="chapter-title">Capítulo: </h2>
+
+        <div class="story-layout">
+            <div class="story-editor">
+                <textarea id="story-textarea" placeholder="Escribe aquí la historia principal..."></textarea>
+            </div>
+
+            <div class="story-sidebar">
+                <h3 style="margin:0;">Contexto del capítulo</h3>
+
+                <div class="story-context-section">
+                    <label for="story-location">Lugar actual</label>
+                    <select id="story-location"></select>
+                </div>
+
+                <div class="story-context-section">
+                    <label>Personajes en escena</label>
+                    <div id="story-characters" class="story-characters-list"></div>
+                </div>
+
+                <div class="story-context-section">
+                    <label>Info rápida</label>
+                    <div id="story-info-box" class="story-info-box muted">Selecciona un lugar o personajes para ver el contexto aquí.</div>
+                </div>
+
+                <div class="story-quick-actions">
+                    <button onclick="showPage('characters')">Abrir personajes</button>
+                    <button onclick="showPage('map')">Abrir mapa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="container" class="page-box hidden"></div>
+
+    <div id="ideas-container" class="page-box hidden">
+        <h2 class="section-title">Generador de ideas</h2>
+
+        <div class="idea-grid">
+            <div>
+                <label>Género</label>
+                <select id="idea-genre" class="inline-select" style="width:100%;">
+                    <option>Fantasía</option>
+                    <option>Ciencia ficción</option>
+                    <option>Cyberpunk</option>
+                    <option>Terror</option>
+                    <option>Misterio</option>
+                    <option>Acción</option>
+                    <option>Drama</option>
+                    <option>Postapocalíptico</option>
+                    <option>Romance oscuro</option>
+                    <option>Shonen</option>
+                </select>
+            </div>
+            <div>
+                <label>Tono</label>
+                <select id="idea-tone" class="inline-select" style="width:100%;">
+                    <option>Épico</option>
+                    <option>Oscuro</option>
+                    <option>Violento</option>
+                    <option>Melancólico</option>
+                    <option>Caótico</option>
+                    <option>Esperanzador</option>
+                    <option>Trágico</option>
+                    <option>Retorcido</option>
+                </select>
+            </div>
+            <div>
+                <label>Escala</label>
+                <select id="idea-scale" class="inline-select" style="width:100%;">
+                    <option>Personal</option>
+                    <option>Ciudad</option>
+                    <option>Reino</option>
+                    <option>Planeta</option>
+                    <option>Multiverso</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button onclick="generateIdea()">Generar idea</button>
+            <button onclick="saveGeneratedIdea()">Guardar en ideas</button>
+            <button onclick="clearIdeaOutput()">Limpiar</button>
+        </div>
+
+        <textarea id="idea-output" class="idea-output" placeholder="Aquí aparecerá la idea generada..."></textarea>
+
+        <h3>Ideas guardadas</h3>
+        <div id="ideas-list" class="card-grid"></div>
+    </div>
+
+    <div id="characters-container" class="page-box hidden">
+        <h2 class="section-title">Personajes</h2>
+        <div class="toolbar">
+            <button onclick="createCharacter()">Nuevo personaje</button>
+        </div>
+        <div id="characters-list" class="card-grid"></div>
+    </div>
+
+    <div id="relations-container" class="page-box hidden">
+        <h2 class="section-title">Árbol de relaciones</h2>
+        <div class="toolbar">
+            <select id="relation-from" class="inline-select"></select>
+            <select id="relation-type" class="inline-select">
+                <option>Aliado</option>
+                <option>Enemigo</option>
+                <option>Amigo</option>
+                <option>Rival</option>
+                <option>Familia</option>
+                <option>Romance</option>
+                <option>Mentor</option>
+                <option>Discípulo</option>
+                <option>Traición</option>
+                <option>Obsesión</option>
+                <option>Deuda</option>
+                <option>Protección</option>
+            </select>
+            <select id="relation-to" class="inline-select"></select>
+            <button onclick="createRelationship()">Conectar personajes</button>
+        </div>
+
+        <div class="relations-layout">
+            <div class="relation-tree-box">
+                <h3 style="margin-top:0;">Vista árbol</h3>
+                <div id="relations-tree"></div>
+            </div>
+            <div>
+                <h3 style="margin-top:0;">Relaciones creadas</h3>
+                <div id="relations-list" class="card-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="timeline-container" class="page-box hidden">
+        <h2 class="section-title">Línea temporal</h2>
+        <div class="toolbar">
+            <button onclick="createTimelineEvent()">Nuevo evento</button>
+            <span class="muted">Ordena los eventos con el campo "Orden".</span>
+        </div>
+        <div id="timeline-list" class="timeline-list"></div>
+    </div>
+
+    <div id="arcs-container" class="page-box hidden">
+        <h2 class="section-title">Mapa de arco</h2>
+        <div class="toolbar">
+            <button onclick="createArcMap()">Nuevo arco</button>
+            <span class="muted">Cada arco tiene beats o momentos clave.</span>
+        </div>
+        <div id="arcs-list" class="card-grid"></div>
+    </div>
+
+    <div id="world-container" class="page-box hidden">
+        <h2 class="section-title">Mundo</h2>
+        <div class="toolbar">
+            <button onclick="createWorldEntry()">Nueva entrada del mundo</button>
+        </div>
+        <div id="world-list" class="card-grid"></div>
+    </div>
+
+
+    <div id="map-container" class="page-box hidden">
+        <h2 class="section-title">Mapa del mundo</h2>
+
+        <div class="toolbar">
+            <button onclick="createMapPlace('continente')">Nuevo continente</button>
+            <button onclick="createMapPlace('pais')">Nuevo país</button>
+            <button onclick="createMapPlace('region')">Nueva región</button>
+            <button onclick="createMapPlace('ciudad')">Nueva ciudad</button>
+            <button onclick="createMapPlace('pueblo')">Nuevo pueblo</button>
+            <button onclick="generateSampleMap()">Generar ejemplo</button>
+        </div>
+
+        <div class="map-layout">
+            <div class="map-canvas-box">
+                <svg id="world-map-svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <div class="map-sidebar">
+                <div class="map-help">
+                    <strong>Cómo funciona</strong><br>
+                    Crea lugares y ajusta su posición con X/Y. Continentes, países y regiones se dibujan como áreas; ciudades y pueblos como marcadores.
+                </div>
+                <h3>Lugares</h3>
+                <div id="map-places-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="organizer-container" class="page-box hidden">
+        <h2 class="section-title">Organizador tipo Notion</h2>
+
+        <div class="organizer-top">
+            <button onclick="createBoard()">Nuevo tablero</button>
+            <button onclick="createOrganizerColumn()">Nueva columna</button>
+            <button onclick="createOrganizerCard()">Nueva tarjeta</button>
+            <span class="muted">Tableros, columnas y tarjetas guardados por proyecto.</span>
+        </div>
+
+        <div id="organizer-board-list" class="organizer-board-list"></div>
+        <div id="organizer-columns" class="organizer-columns"></div>
+    </div>
+
+</div>
+
+<div id="book-modal">
+    <div id="book-box">
+        <div id="book-header">
+            <h2 id="book-title">Libro</h2>
+            <div id="book-actions">
+                <button onclick="copyBookText()">Copiar libro</button>
+                <button onclick="closeBook()">Cerrar</button>
+            </div>
+        </div>
+        <textarea id="book-text" readonly></textarea>
+    </div>
+</div>
+
+
+<div id="transfer-modal" style="
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:3000;
+    padding:10px;
+    box-sizing:border-box;
+">
+    <div style="
+        background:white;
+        width:min(900px, 100%);
+        max-height:90vh;
+        border-radius:10px;
+        box-shadow:0 4px 18px rgba(0,0,0,0.35);
+        display:flex;
+        flex-direction:column;
+        overflow:hidden;
+    ">
+        <div style="
+            background:#222;
+            color:white;
+            padding:10px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:10px;
+            flex-wrap:wrap;
+        ">
+            <h2 id="transfer-title" style="margin:0; font-size:1.1em;">Transferir proyecto</h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="transfer-copy-btn" onclick="copyTransferText()" style="background:#444; color:white; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Copiar</button>
+                <button id="transfer-import-btn" onclick="importProjectFromText()" style="background:#444; color:white; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Importar</button>
+                <button id="transfer-analyze-btn" onclick="analyzeTextFromModal()" style="background:#444; color:white; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Analizar</button>
+                <button onclick="closeTransferModal()" style="background:#444; color:white; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>
+
+        <textarea id="transfer-text" style="
+            width:100%;
+            height:70vh;
+            border:none;
+            outline:none;
+            resize:none;
+            padding:14px;
+            box-sizing:border-box;
+            font-size:1em;
+            line-height:1.5;
+            font-family:Arial, sans-serif;
+        " placeholder="Aquí aparecerán los datos exportados o aquí puedes pegar un proyecto..."></textarea>
+    </div>
+</div>
+
+<script>
+let projects = [];
+let currentProject = null;
+let chapters = [];
+let globalTags = [];
+let tagColors = {};
+let currentChapter = null;
+let currentPage = 'story';
+
+let ideas = [];
+let characters = [];
+let worldEntries = [];
+let boards = [];
+let currentBoardId = null;
+let relationships = [];
+let timelineEvents = [];
+let arcMaps = [];
+let mapPlaces = [];
+let selectedMapPlaceId = null;
+
+const ideaParts = {
+    protagonists: [
+        "un mercenario marcado por una maldición",
+        "una princesa fugitiva con poderes prohibidos",
+        "un científico obsesionado con derrotar a la muerte",
+        "un soldado clonado que recuerda vidas ajenas",
+        "una sacerdotisa que oye voces del vacío",
+        "un hacker que roba memorias",
+        "un asesino incapaz de matar a su próximo objetivo",
+        "una chica común que despierta como monstruo legendario"
+    ],
+    goals: [
+        "debe destruir un artefacto sagrado",
+        "quiere rescatar a su hermano desaparecido",
+        "busca venganza contra el imperio",
+        "intenta impedir el colapso del mundo",
+        "quiere reescribir el destino",
+        "necesita sellar una puerta dimensional",
+        "pretende crear una nueva civilización",
+        "debe descubrir quién manipuló su pasado"
+    ],
+    twists: [
+        "pero descubre que él mismo es el origen del desastre",
+        "aunque su mayor aliado trabaja para el enemigo",
+        "mientras una profecía exige su sacrificio",
+        "sin saber que el villano quiere salvar a la humanidad",
+        "y cada victoria borra un recuerdo importante",
+        "mientras su cuerpo se transforma en algo inhumano",
+        "pero el mundo que intenta salvar quiere verlo muerto",
+        "y el precio del éxito es perder a la persona que ama"
+    ],
+    settings: [
+        "en una megaciudad alimentada por almas",
+        "en un reino devorado por dioses mecánicos",
+        "en una tierra donde la noche dura años",
+        "en colonias espaciales que veneran ruinas alienígenas",
+        "en un archipiélago flotante bajo guerra eterna",
+        "en un desierto donde duermen monstruos titánicos",
+        "en una academia construida sobre un cadáver divino",
+        "en una realidad fracturada por viajes temporales"
+    ],
+    conflicts: [
+        "mientras facciones rivales libran una guerra secreta",
+        "con un culto dispuesto a abrir el fin del mundo",
+        "mientras una plaga transforma a la gente en bestias",
+        "y una inteligencia antigua manipula a todos",
+        "mientras la magia se vuelve cada vez más inestable",
+        "y la nobleza se alimenta literalmente del pueblo",
+        "mientras los héroes oficiales son la verdadera amenaza",
+        "y la verdad del mundo es demasiado monstruosa para aceptarla"
+    ]
+};
+
+function uid() {
+    return Date.now().toString() + Math.random().toString(16).slice(2);
+}
+
+function saveData() {
+    if(currentProject){
+        currentProject.chapters = chapters;
+        currentProject.globalTags = globalTags;
+        currentProject.tagColors = tagColors;
+        currentProject.ideas = ideas;
+        currentProject.characters = characters;
+        currentProject.worldEntries = worldEntries;
+        currentProject.boards = boards;
+        currentProject.relationships = relationships;
+        currentProject.timelineEvents = timelineEvents;
+        currentProject.arcMaps = arcMaps;
+        currentProject.mapPlaces = mapPlaces;
+    }
+    localStorage.setItem('storyProjects', JSON.stringify(projects));
+}
+
+window.onload = () => {
+    const saved = localStorage.getItem('storyProjects');
+    if(saved){
+        try {
+            projects = JSON.parse(saved);
+        } catch(e) {
+            console.error('Error al cargar datos:', e);
+            projects = [];
+        }
+    }
+
+    if(projects.length === 0){
+        createProject(true);
+    } else {
+        loadProject(projects[0]);
+    }
+
+    renderProjectList();
+    renderChapterList();
+    showPage(currentPage);
+};
+
+function toggleProjectPanel() {
+    const panel = document.getElementById('project-panel');
+    const chapterPanel = document.getElementById('chapter-panel');
+    chapterPanel.style.display = 'none';
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+}
+
+function createProject(isInitial = false) {
+    let name = isInitial ? "Proyecto 1" : prompt("Nombre del nuevo proyecto:");
+    if(!name && !isInitial) return;
+
+    const project = {
+        id: uid(),
+        name: name,
+        chapters: [],
+        globalTags: [],
+        tagColors: {},
+        ideas: [],
+        characters: [],
+        worldEntries: [],
+        boards: [
+            {
+                id: uid(),
+                name: "Plan general",
+                columns: [
+                    { id: uid(), name: "Ideas", cards: [] },
+                    { id: uid(), name: "En proceso", cards: [] },
+                    { id: uid(), name: "Terminado", cards: [] }
+                ]
+            }
+        ],
+        relationships: [],
+        timelineEvents: [],
+        arcMaps: [],
+        mapPlaces: []
+    };
+
+    projects.push(project);
+    loadProject(project);
+    renderProjectList();
+
+    if(!isInitial) toggleProjectPanel();
+}
+
+function loadProject(project) {
+    currentProject = project;
+    chapters = project.chapters || [];
+    globalTags = project.globalTags || [];
+    tagColors = project.tagColors || {};
+    ideas = project.ideas || [];
+    characters = project.characters || [];
+    worldEntries = project.worldEntries || [];
+    boards = project.boards || [];
+    relationships = project.relationships || [];
+    timelineEvents = project.timelineEvents || [];
+    arcMaps = project.arcMaps || [];
+    mapPlaces = project.mapPlaces || [];
+    selectedMapPlaceId = null;
+
+    if(boards.length === 0){
+        boards = [
+            {
+                id: uid(),
+                name: "Plan general",
+                columns: [
+                    { id: uid(), name: "Ideas", cards: [] },
+                    { id: uid(), name: "En proceso", cards: [] },
+                    { id: uid(), name: "Terminado", cards: [] }
+                ]
+            }
+        ];
+    }
+
+    currentBoardId = boards[0]?.id || null;
+
+    if(chapters.length === 0) {
+        createChapter(true);
+    } else {
+        loadChapter(chapters[0]);
+    }
+
+    saveData();
+    renderChapterList();
+    renderProjectList();
+}
+
+function renderProjectList() {
+    const list = document.getElementById('project-list');
+    list.innerHTML = '';
+
+    projects.forEach((proj, index) => {
+        const div = document.createElement('div');
+        div.className = 'project-item' + (proj === currentProject ? ' active' : '');
+
+        const span = document.createElement('span');
+        span.textContent = proj.name;
+        span.style.cursor = 'pointer';
+        span.onclick = () => {
+            loadProject(proj);
+            toggleProjectPanel();
+            showPage(currentPage);
+        };
+
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.gap = '5px';
+
+        const renameBtn = document.createElement('button');
+        renameBtn.textContent = 'Renombrar';
+        renameBtn.style.background = '#3498db';
+        renameBtn.onclick = (e) => {
+            e.stopPropagation();
+            const newName = prompt("Nuevo nombre:", proj.name);
+            if(newName) {
+                proj.name = newName;
+                saveData();
+                renderProjectList();
+            }
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Eliminar';
+        delBtn.style.background = '#c0392b';
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            if(projects.length === 1){
+                alert("No puedes eliminar el único proyecto.");
+                return;
+            }
+            if(confirm(`¿Eliminar proyecto "${proj.name}"?`)){
+                projects.splice(index, 1);
+                if(proj === currentProject){
+                    loadProject(projects[0]);
+                }
+                saveData();
+                renderProjectList();
+                showPage(currentPage);
+            }
+        };
+
+        btnContainer.appendChild(renameBtn);
+        btnContainer.appendChild(delBtn);
+        div.appendChild(span);
+        div.appendChild(btnContainer);
+        list.appendChild(div);
+    });
+}
+
+function toggleChapterPanel() {
+    const panel = document.getElementById('chapter-panel');
+    const projectPanel = document.getElementById('project-panel');
+    projectPanel.style.display = 'none';
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+}
+
+function createChapter(isInitial = false) {
+    let name = isInitial ? "Capítulo 1" : prompt("Nombre del nuevo capítulo:");
+    if(!name && !isInitial) return;
+    const chapter = { id: uid(), name: name, story: '', locationId: '', characterIds: [] };
+    chapters.push(chapter);
+    saveData();
+    renderChapterList();
+    loadChapter(chapter);
+}
+
+function renderChapterList() {
+    const list = document.getElementById('chapter-list');
+    list.innerHTML='';
+    chapters.forEach((ch,index)=>{
+        const div=document.createElement('div');
+        div.className='chapter-item';
+
+        const span=document.createElement('span');
+        span.textContent=ch.name;
+        span.style.cursor='pointer';
+        span.onclick=()=>{ loadChapter(ch); toggleChapterPanel(); };
+
+        const delBtn=document.createElement('button');
+        delBtn.textContent='Eliminar';
+        delBtn.style.background='#c0392b';
+        delBtn.onclick=(e)=>{
+            e.stopPropagation();
+            if(confirm(`¿Eliminar capítulo "${ch.name}"?`)){
+                chapters.splice(index,1);
+                saveData();
+                if(ch===currentChapter){
+                    if(chapters.length>0) loadChapter(chapters[0]);
+                    else createChapter();
+                }
+                renderChapterList();
+            }
+        };
+
+        div.appendChild(span);
+        div.appendChild(delBtn);
+        list.appendChild(div);
+    });
+}
+
+function loadChapter(chapter){
+    currentChapter=chapter;
+    if(!currentChapter.locationId) currentChapter.locationId = '';
+    if(!Array.isArray(currentChapter.characterIds)) currentChapter.characterIds = [];
+    document.getElementById('chapter-title').textContent="Capítulo: "+chapter.name;
+    document.getElementById('story-textarea').value=chapter.story||'';
+    renderStoryContext();
+    renderStoryInfo();
+}
+
+function showPage(page){
+    currentPage = page;
+
+    const sections = [
+        'story-container',
+        'container',
+        'ideas-container',
+        'characters-container',
+        'relations-container',
+        'timeline-container',
+        'arcs-container',
+        'world-container',
+        'map-container',
+        'organizer-container'
+    ];
+
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.classList.add('hidden');
+    });
+
+    if(page === 'story'){
+        document.getElementById('story-container').classList.remove('hidden');
+        renderStoryContext();
+        renderStoryInfo();
+    } else if(page === 'tags'){
+        document.getElementById('container').classList.remove('hidden');
+        renderBlocks();
+    } else if(page === 'ideas'){
+        document.getElementById('ideas-container').classList.remove('hidden');
+        renderIdeas();
+    } else if(page === 'characters'){
+        document.getElementById('characters-container').classList.remove('hidden');
+        renderCharacters();
+    } else if(page === 'relations'){
+        document.getElementById('relations-container').classList.remove('hidden');
+        renderRelationships();
+    } else if(page === 'timeline'){
+        document.getElementById('timeline-container').classList.remove('hidden');
+        renderTimeline();
+    } else if(page === 'arcs'){
+        document.getElementById('arcs-container').classList.remove('hidden');
+        renderArcMaps();
+    } else if(page === 'world'){
+        document.getElementById('world-container').classList.remove('hidden');
+        renderWorldEntries();
+    } else if(page === 'map'){
+        document.getElementById('map-container').classList.remove('hidden');
+        renderMapPage();
+    } else if(page === 'organizer'){
+        document.getElementById('organizer-container').classList.remove('hidden');
+        renderBoards();
+    }
+}
+
+document.getElementById('story-textarea').addEventListener('input',e=>{
+    if(currentChapter){
+        currentChapter.story=e.target.value;
+        saveData();
+    }
+});
+
+function getPlaceLabelById(placeId){
+    const place = mapPlaces.find(p => p.id === placeId);
+    if(!place) return 'Sin lugar';
+    return `${place.name} (${getTypeLabel(place.type).toLowerCase()})`;
+}
+
+function renderStoryContext(){
+    renderStoryLocation();
+    renderStoryCharacters();
+}
+
+function renderStoryLocation(){
+    const select = document.getElementById('story-location');
+    if(!select || !currentChapter) return;
+
+    const previousValue = currentChapter.locationId || '';
+    select.innerHTML = '<option value="">Sin lugar</option>';
+
+    mapPlaces.forEach(place => {
+        const opt = document.createElement('option');
+        opt.value = place.id;
+        opt.textContent = `${place.name} (${getTypeLabel(place.type)})`;
+        if(previousValue === place.id) opt.selected = true;
+        select.appendChild(opt);
+    });
+
+    select.onchange = e => {
+        currentChapter.locationId = e.target.value;
+        saveData();
+        renderStoryInfo();
+    };
+}
+
+function renderStoryCharacters(){
+    const box = document.getElementById('story-characters');
+    if(!box || !currentChapter) return;
+
+    box.innerHTML = '';
+
+    if(characters.length === 0){
+        box.innerHTML = '<div class="muted">No hay personajes creados todavía.</div>';
+        return;
+    }
+
+    characters.forEach(character => {
+        const pill = document.createElement('div');
+        const isActive = currentChapter.characterIds.includes(character.id);
+        pill.className = 'story-character-pill' + (isActive ? ' active' : '');
+        pill.textContent = character.name || 'Sin nombre';
+        pill.onclick = () => {
+            if(currentChapter.characterIds.includes(character.id)){
+                currentChapter.characterIds = currentChapter.characterIds.filter(id => id !== character.id);
+            } else {
+                currentChapter.characterIds.push(character.id);
+            }
+            saveData();
+            renderStoryCharacters();
+            renderStoryInfo();
+        };
+        box.appendChild(pill);
+    });
+}
+
+function renderStoryInfo(){
+    const box = document.getElementById('story-info-box');
+    if(!box || !currentChapter) return;
+
+    const lines = [];
+
+    if(currentChapter.locationId){
+        const place = mapPlaces.find(p => p.id === currentChapter.locationId);
+        if(place){
+            lines.push(`📍 Lugar: ${place.name}`);
+            lines.push(`Tipo: ${getTypeLabel(place.type)}`);
+        }
+    } else {
+        lines.push('📍 Lugar: Sin asignar');
+    }
+
+    lines.push('');
+
+    if(currentChapter.characterIds.length > 0){
+        lines.push('👥 Personajes activos:');
+        currentChapter.characterIds.forEach(id => {
+            const ch = characters.find(c => c.id === id);
+            if(ch){
+                lines.push(`• ${ch.name || 'Sin nombre'}`);
+                lines.push(`  Rol: ${ch.role || 'sin rol'}`);
+                lines.push(`  Objetivo: ${ch.goal || 'sin objetivo'}`);
+                if(ch.conflict) lines.push(`  Conflicto: ${ch.conflict}`);
+                lines.push('');
+            }
+        });
+    } else {
+        lines.push('👥 Personajes activos: ninguno');
+        lines.push('');
+    }
+
+    const relatedTimeline = timelineEvents.filter(ev => (ev.chapter || '') === (currentChapter.name || ''));
+    if(relatedTimeline.length > 0){
+        lines.push('🕒 Eventos relacionados con este capítulo:');
+        relatedTimeline.slice(0,3).forEach(ev => {
+            lines.push(`• ${ev.title || 'Evento sin título'}`);
+        });
+    }
+
+    box.textContent = lines.join('\n').trim() || 'No hay contexto seleccionado.';
+    box.classList.remove('muted');
+}
+
+function createBlock(parentArray){
+    let tag = prompt("Nombre de la etiqueta/carpeta:");
+    if(!tag) return;
+    if(!tagColors[tag]){
+        const color=prompt("Color para la etiqueta (hex, ej: #e74c3c):","#9b59b6");
+        tagColors[tag]=color||"#9b59b6";
+    }
+    const block={ id: uid(), tag:tag, text:'', children:[], collapsed:false };
+    parentArray.push(block);
+    saveData();
+    renderBlocks();
+}
+
+function deleteBlock(parentArray,index){
+    if(confirm("¿Eliminar carpeta y todo su contenido?")){
+        parentArray.splice(index,1);
+        saveData();
+        renderBlocks();
+    }
+}
+
+function renderBlocks(){
+    const container=document.getElementById('container');
+    container.innerHTML='';
+
+    function recursiveRender(blocks,parentArray,depth=0){
+        blocks.forEach((block,index)=>{
+            const div=document.createElement('div');
+            div.className='block';
+
+            const header=document.createElement('div');
+            header.className='block-header indent';
+            header.style.marginLeft = (depth*20)+'px';
+
+            const tagSpan=document.createElement('span');
+            tagSpan.className='tag';
+            tagSpan.style.background=tagColors[block.tag]||'#9b59b6';
+
+            const icon=document.createElement('span');
+            icon.className='folder-icon '+(block.collapsed?'folder-closed':'folder-open');
+
+            tagSpan.appendChild(icon);
+            tagSpan.appendChild(document.createTextNode(block.tag));
+            tagSpan.onclick=e=>{
+                e.stopPropagation();
+                let newTag = prompt("Cambiar nombre etiqueta:",block.tag);
+                if(newTag){
+                    block.tag=newTag;
+                    if(!tagColors[newTag]){
+                        let color = prompt("Color para nueva etiqueta:","#9b59b6");
+                        tagColors[newTag]=color||"#9b59b6";
+                    }
+                    saveData();
+                    renderBlocks();
+                }
+            };
+
+            const toggleBtn=document.createElement('button');
+            toggleBtn.textContent=block.collapsed?'+':'-';
+
+            const content=document.createElement('div');
+            content.className='block-content';
+            content.style.display = block.collapsed?'none':'block';
+
+            toggleBtn.onclick = e => {
+                e.stopPropagation();
+                block.collapsed = !block.collapsed;
+                saveData();
+                renderBlocks();
+            };
+
+            header.appendChild(tagSpan);
+            header.appendChild(toggleBtn);
+
+            const textarea=document.createElement('textarea');
+            textarea.value=block.text;
+
+            const adjustHeight = () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            };
+
+            textarea.oninput = e => {
+                block.text = e.target.value;
+                saveData();
+                adjustHeight();
+            };
+
+            setTimeout(adjustHeight, 0);
+
+            const controls=document.createElement('div');
+            controls.className='controls';
+
+            const addChildBtn=document.createElement('button');
+            addChildBtn.textContent='Añadir subcarpeta';
+            addChildBtn.onclick=()=>createBlock(block.children);
+
+            const deleteBtn=document.createElement('button');
+            deleteBtn.textContent='Eliminar';
+            deleteBtn.onclick=()=>deleteBlock(parentArray,index);
+
+            controls.appendChild(addChildBtn);
+            controls.appendChild(deleteBtn);
+
+            content.appendChild(textarea);
+            content.appendChild(controls);
+
+            div.appendChild(header);
+            div.appendChild(content);
+            container.appendChild(div);
+
+            if(block.children.length>0) recursiveRender(block.children,block.children,depth+1);
+        });
+    }
+
+    recursiveRender(globalTags,globalTags);
+}
+
+function randomFrom(arr){
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateIdea(){
+    const genre = document.getElementById('idea-genre').value;
+    const tone = document.getElementById('idea-tone').value;
+    const scale = document.getElementById('idea-scale').value;
+
+    const text =
+`Género: ${genre}
+Tono: ${tone}
+Escala: ${scale}
+
+Premisa:
+${randomFrom(ideaParts.protagonists)} ${randomFrom(ideaParts.goals)} ${randomFrom(ideaParts.settings)} ${randomFrom(ideaParts.conflicts)}, ${randomFrom(ideaParts.twists)}.
+
+Gancho:
+La historia mezcla un enfoque ${tone.toLowerCase()} con una escala ${scale.toLowerCase()}, empujando al protagonista a elegir entre su deseo personal y el precio brutal de cambiar el mundo.
+
+Posibles conflictos:
+- Una traición dentro del grupo principal.
+- Una verdad horrible sobre el origen del poder.
+- Un antagonista con motivos válidos.
+- Una consecuencia irreversible por usar el poder o alcanzar la meta.
+`;
+
+    document.getElementById('idea-output').value = text;
+}
+
+function clearIdeaOutput(){
+    document.getElementById('idea-output').value = '';
+}
+
+function saveGeneratedIdea(){
+    const text = document.getElementById('idea-output').value.trim();
+    if(!text){
+        alert("No hay idea generada para guardar.");
+        return;
+    }
+
+    ideas.unshift({
+        id: uid(),
+        title: "Idea " + (ideas.length + 1),
+        content: text
+    });
+    saveData();
+    renderIdeas();
+    alert("Idea guardada.");
+}
+
+function renderIdeas(){
+    const list = document.getElementById('ideas-list');
+    list.innerHTML = '';
+
+    if(ideas.length === 0){
+        list.innerHTML = '<p class="muted">Todavía no has guardado ideas.</p>';
+        return;
+    }
+
+    ideas.forEach((idea, index) => {
+        const card = document.createElement('div');
+        card.className = 'world-card';
+
+        const title = document.createElement('input');
+        title.type = 'text';
+        title.value = idea.title || '';
+        title.className = 'inline-input';
+        title.oninput = (e) => {
+            idea.title = e.target.value;
+            saveData();
+        };
+
+        const content = document.createElement('textarea');
+        content.value = idea.content || '';
+        content.style.minHeight = '180px';
+        content.oninput = (e) => {
+            idea.content = e.target.value;
+            saveData();
+        };
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const useBtn = document.createElement('button');
+        useBtn.className = 'small-btn';
+        useBtn.textContent = 'Mandar a etiquetas';
+        useBtn.onclick = () => {
+            const tagName = prompt("Nombre de la carpeta donde guardar la idea:", idea.title || "Idea");
+            if(!tagName) return;
+            if(!tagColors[tagName]) tagColors[tagName] = "#16a085";
+            globalTags.push({
+                id: uid(),
+                tag: tagName,
+                text: idea.content || '',
+                children: [],
+                collapsed: false
+            });
+            saveData();
+            alert("Idea enviada a etiquetas.");
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = () => {
+            if(confirm("¿Eliminar esta idea?")){
+                ideas.splice(index, 1);
+                saveData();
+                renderIdeas();
+            }
+        };
+
+        actions.appendChild(useBtn);
+        actions.appendChild(delBtn);
+
+        card.appendChild(title);
+        card.appendChild(content);
+        card.appendChild(actions);
+        list.appendChild(card);
+    });
+}
+
+function createCharacter(){
+    characters.unshift({
+        id: uid(),
+        name: "Nuevo personaje",
+        role: "",
+        age: "",
+        goal: "",
+        conflict: "",
+        appearance: "",
+        personality: "",
+        backstory: "",
+        notes: ""
+    });
+    saveData();
+    renderCharacters();
+}
+
+function renderCharacters(){
+    const list = document.getElementById('characters-list');
+    list.innerHTML = '';
+
+    if(characters.length === 0){
+        list.innerHTML = '<p class="muted">No hay personajes todavía.</p>';
+        return;
+    }
+
+    characters.forEach((character, index) => {
+        const card = document.createElement('div');
+        card.className = 'character-card';
+
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.value = character.name || '';
+        name.className = 'inline-input';
+        name.placeholder = 'Nombre';
+        name.oninput = e => { character.name = e.target.value; saveData(); renderRelationshipsSelectorsOnly(); renderStoryCharacters(); renderStoryInfo(); };
+
+        const role = document.createElement('input');
+        role.type = 'text';
+        role.value = character.role || '';
+        role.className = 'inline-input';
+        role.placeholder = 'Rol';
+        role.oninput = e => { character.role = e.target.value; saveData(); };
+
+        const age = document.createElement('input');
+        age.type = 'text';
+        age.value = character.age || '';
+        age.className = 'inline-input';
+        age.placeholder = 'Edad';
+        age.oninput = e => { character.age = e.target.value; saveData(); };
+
+        const goal = document.createElement('textarea');
+        goal.placeholder = 'Objetivo';
+        goal.value = character.goal || '';
+        goal.oninput = e => { character.goal = e.target.value; saveData(); };
+
+        const conflict = document.createElement('textarea');
+        conflict.placeholder = 'Conflicto';
+        conflict.value = character.conflict || '';
+        conflict.oninput = e => { character.conflict = e.target.value; saveData(); };
+
+        const appearance = document.createElement('textarea');
+        appearance.placeholder = 'Apariencia';
+        appearance.value = character.appearance || '';
+        appearance.oninput = e => { character.appearance = e.target.value; saveData(); };
+
+        const personality = document.createElement('textarea');
+        personality.placeholder = 'Personalidad';
+        personality.value = character.personality || '';
+        personality.oninput = e => { character.personality = e.target.value; saveData(); };
+
+        const backstory = document.createElement('textarea');
+        backstory.placeholder = 'Historia de fondo';
+        backstory.value = character.backstory || '';
+        backstory.oninput = e => { character.backstory = e.target.value; saveData(); };
+
+        const notes = document.createElement('textarea');
+        notes.placeholder = 'Notas';
+        notes.value = character.notes || '';
+        notes.oninput = e => { character.notes = e.target.value; saveData(); };
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = () => {
+            if(confirm(`¿Eliminar personaje "${character.name}"?`)){
+                const deletedId = character.id;
+                characters.splice(index, 1);
+                relationships = relationships.filter(r => r.fromId !== deletedId && r.toId !== deletedId);
+                chapters.forEach(ch => {
+                    if(Array.isArray(ch.characterIds)) ch.characterIds = ch.characterIds.filter(id => id !== deletedId);
+                });
+                saveData();
+                renderCharacters();
+                renderRelationships();
+            }
+        };
+
+        actions.appendChild(delBtn);
+
+        card.appendChild(name);
+        card.appendChild(role);
+        card.appendChild(age);
+        card.appendChild(goal);
+        card.appendChild(conflict);
+        card.appendChild(appearance);
+        card.appendChild(personality);
+        card.appendChild(backstory);
+        card.appendChild(notes);
+        card.appendChild(actions);
+
+        list.appendChild(card);
+    });
+}
+
+function renderRelationshipsSelectorsOnly(){
+    const from = document.getElementById('relation-from');
+    const to = document.getElementById('relation-to');
+    if(!from || !to) return;
+
+    const prevFrom = from.value;
+    const prevTo = to.value;
+
+    from.innerHTML = '';
+    to.innerHTML = '';
+
+    if(characters.length === 0){
+        from.innerHTML = '<option value="">Sin personajes</option>';
+        to.innerHTML = '<option value="">Sin personajes</option>';
+        return;
+    }
+
+    characters.forEach(ch => {
+        const o1 = document.createElement('option');
+        o1.value = ch.id;
+        o1.textContent = ch.name || 'Sin nombre';
+        from.appendChild(o1);
+
+        const o2 = document.createElement('option');
+        o2.value = ch.id;
+        o2.textContent = ch.name || 'Sin nombre';
+        to.appendChild(o2);
+    });
+
+    if([...from.options].some(o => o.value === prevFrom)) from.value = prevFrom;
+    if([...to.options].some(o => o.value === prevTo)) to.value = prevTo;
+}
+
+function getCharacterNameById(id){
+    const ch = characters.find(c => c.id === id);
+    return ch ? (ch.name || 'Sin nombre') : 'Desconocido';
+}
+
+function createRelationship(){
+    if(characters.length < 2){
+        alert("Necesitas al menos dos personajes.");
+        return;
+    }
+
+    const fromId = document.getElementById('relation-from').value;
+    const toId = document.getElementById('relation-to').value;
+    const type = document.getElementById('relation-type').value;
+
+    if(!fromId || !toId){
+        alert("Selecciona ambos personajes.");
+        return;
+    }
+
+    if(fromId === toId){
+        alert("Un personaje no puede conectarse consigo mismo.");
+        return;
+    }
+
+    const note = prompt("Descripción corta de la relación:", "");
+    relationships.unshift({
+        id: uid(),
+        fromId,
+        toId,
+        type,
+        note: note || ""
+    });
+    saveData();
+    renderRelationships();
+}
+
+function renderRelationships(){
+    renderRelationshipsSelectorsOnly();
+
+    const list = document.getElementById('relations-list');
+    const tree = document.getElementById('relations-tree');
+    list.innerHTML = '';
+    tree.innerHTML = '';
+
+    if(characters.length === 0){
+        list.innerHTML = '<p class="muted">Primero crea personajes.</p>';
+        tree.innerHTML = '<p class="muted">No hay personajes para mostrar.</p>';
+        return;
+    }
+
+    if(relationships.length === 0){
+        list.innerHTML = '<p class="muted">No hay relaciones todavía.</p>';
+    } else {
+        relationships.forEach((rel, index) => {
+            const card = document.createElement('div');
+            card.className = 'relation-card';
+
+            const from = document.createElement('div');
+            from.innerHTML = `<strong>${getCharacterNameById(rel.fromId)}</strong> → <strong>${getCharacterNameById(rel.toId)}</strong>`;
+
+            const type = document.createElement('input');
+            type.type = 'text';
+            type.value = rel.type || '';
+            type.placeholder = 'Tipo de relación';
+            type.oninput = e => { rel.type = e.target.value; saveData(); renderRelationships(); };
+
+            const note = document.createElement('textarea');
+            note.placeholder = 'Detalle';
+            note.value = rel.note || '';
+            note.oninput = e => { rel.note = e.target.value; saveData(); };
+
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'small-btn';
+            delBtn.style.background = '#c0392b';
+            delBtn.textContent = 'Eliminar';
+            delBtn.onclick = () => {
+                if(confirm("¿Eliminar esta relación?")){
+                    relationships.splice(index, 1);
+                    saveData();
+                    renderRelationships();
+                }
+            };
+
+            actions.appendChild(delBtn);
+
+            card.appendChild(from);
+            card.appendChild(type);
+            card.appendChild(note);
+            card.appendChild(actions);
+            list.appendChild(card);
+        });
+    }
+
+    characters.forEach(character => {
+        const node = document.createElement('div');
+        node.className = 'relation-node';
+
+        const title = document.createElement('div');
+        title.innerHTML = `<strong>${character.name || 'Sin nombre'}</strong> <span class="muted">(${character.role || 'sin rol'})</span>`;
+        node.appendChild(title);
+
+        const outgoing = relationships.filter(r => r.fromId === character.id);
+
+        if(outgoing.length === 0){
+            const empty = document.createElement('div');
+            empty.className = 'muted';
+            empty.style.marginTop = '6px';
+            empty.textContent = 'Sin conexiones desde este personaje.';
+            node.appendChild(empty);
+        } else {
+            outgoing.forEach(rel => {
+                const link = document.createElement('div');
+                link.className = 'relation-link';
+                link.innerHTML = `<strong>${rel.type}</strong> → ${getCharacterNameById(rel.toId)}${rel.note ? `<br><span class="muted">${rel.note}</span>` : ''}`;
+                node.appendChild(link);
+            });
+        }
+
+        tree.appendChild(node);
+    });
+}
+
+function createTimelineEvent(){
+    timelineEvents.push({
+        id: uid(),
+        order: timelineEvents.length + 1,
+        title: "Nuevo evento",
+        phase: "Inicio",
+        chapter: currentChapter ? currentChapter.name : "",
+        description: "",
+        consequence: ""
+    });
+    saveData();
+    renderTimeline();
+}
+
+function renderTimeline(){
+    const list = document.getElementById('timeline-list');
+    list.innerHTML = '';
+
+    if(timelineEvents.length === 0){
+        list.innerHTML = '<p class="muted">No hay eventos en la línea temporal.</p>';
+        return;
+    }
+
+    const sorted = [...timelineEvents].sort((a,b) => Number(a.order || 0) - Number(b.order || 0));
+
+    sorted.forEach(event => {
+        const originalIndex = timelineEvents.findIndex(e => e.id === event.id);
+
+        const row = document.createElement('div');
+        row.className = 'timeline-row';
+
+        const marker = document.createElement('div');
+        marker.className = 'timeline-marker';
+        marker.textContent = `#${event.order || 0}`;
+
+        const card = document.createElement('div');
+        card.className = 'timeline-card';
+
+        const order = document.createElement('input');
+        order.type = 'number';
+        order.value = event.order || 0;
+        order.placeholder = 'Orden';
+        order.oninput = e => { event.order = Number(e.target.value || 0); saveData(); renderTimeline(); };
+
+        const title = document.createElement('input');
+        title.type = 'text';
+        title.value = event.title || '';
+        title.placeholder = 'Título del evento';
+        title.oninput = e => { event.title = e.target.value; saveData(); };
+
+        const phase = document.createElement('input');
+        phase.type = 'text';
+        phase.value = event.phase || '';
+        phase.placeholder = 'Fase';
+        phase.oninput = e => { event.phase = e.target.value; saveData(); };
+
+        const chapter = document.createElement('input');
+        chapter.type = 'text';
+        chapter.value = event.chapter || '';
+        chapter.placeholder = 'Capítulo asociado';
+        chapter.oninput = e => { event.chapter = e.target.value; saveData(); };
+
+        const description = document.createElement('textarea');
+        description.placeholder = 'Qué sucede';
+        description.value = event.description || '';
+        description.oninput = e => { event.description = e.target.value; saveData(); };
+
+        const consequence = document.createElement('textarea');
+        consequence.placeholder = 'Consecuencia';
+        consequence.value = event.consequence || '';
+        consequence.oninput = e => { event.consequence = e.target.value; saveData(); };
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = () => {
+            if(confirm(`¿Eliminar evento "${event.title}"?`)){
+                timelineEvents.splice(originalIndex, 1);
+                saveData();
+                renderTimeline();
+            }
+        };
+
+        actions.appendChild(delBtn);
+
+        card.appendChild(order);
+        card.appendChild(title);
+        card.appendChild(phase);
+        card.appendChild(chapter);
+        card.appendChild(description);
+        card.appendChild(consequence);
+        card.appendChild(actions);
+
+        row.appendChild(marker);
+        row.appendChild(card);
+        list.appendChild(row);
+    });
+}
+
+function createArcMap(){
+    arcMaps.unshift({
+        id: uid(),
+        title: "Nuevo arco",
+        protagonist: "",
+        theme: "",
+        start: "",
+        midpoint: "",
+        climax: "",
+        resolution: "",
+        beats: [{ id: uid(), title: "Beat 1", content: "" }]
+    });
+    saveData();
+    renderArcMaps();
+}
+
+function createArcBeat(arcId){
+    const arc = arcMaps.find(a => a.id === arcId);
+    if(!arc) return;
+    arc.beats.push({
+        id: uid(),
+        title: `Beat ${arc.beats.length + 1}`,
+        content: ""
+    });
+    saveData();
+    renderArcMaps();
+}
+
+function renderArcMaps(){
+    const list = document.getElementById('arcs-list');
+    list.innerHTML = '';
+
+    if(arcMaps.length === 0){
+        list.innerHTML = '<p class="muted">No hay arcos todavía.</p>';
+        return;
+    }
+
+    arcMaps.forEach((arc, arcIndex) => {
+        const card = document.createElement('div');
+        card.className = 'arc-card';
+
+        const title = document.createElement('input');
+        title.type = 'text';
+        title.value = arc.title || '';
+        title.placeholder = 'Nombre del arco';
+        title.oninput = e => { arc.title = e.target.value; saveData(); };
+
+        const protagonist = document.createElement('input');
+        protagonist.type = 'text';
+        protagonist.value = arc.protagonist || '';
+        protagonist.placeholder = 'Personaje central';
+        protagonist.oninput = e => { arc.protagonist = e.target.value; saveData(); };
+
+        const theme = document.createElement('textarea');
+        theme.placeholder = 'Tema del arco';
+        theme.value = arc.theme || '';
+        theme.oninput = e => { arc.theme = e.target.value; saveData(); };
+
+        const start = document.createElement('textarea');
+        start.placeholder = 'Inicio';
+        start.value = arc.start || '';
+        start.oninput = e => { arc.start = e.target.value; saveData(); };
+
+        const midpoint = document.createElement('textarea');
+        midpoint.placeholder = 'Punto medio';
+        midpoint.value = arc.midpoint || '';
+        midpoint.oninput = e => { arc.midpoint = e.target.value; saveData(); };
+
+        const climax = document.createElement('textarea');
+        climax.placeholder = 'Clímax';
+        climax.value = arc.climax || '';
+        climax.oninput = e => { arc.climax = e.target.value; saveData(); };
+
+        const resolution = document.createElement('textarea');
+        resolution.placeholder = 'Resolución';
+        resolution.value = arc.resolution || '';
+        resolution.oninput = e => { arc.resolution = e.target.value; saveData(); };
+
+        card.appendChild(title);
+        card.appendChild(protagonist);
+        card.appendChild(theme);
+        card.appendChild(start);
+        card.appendChild(midpoint);
+        card.appendChild(climax);
+        card.appendChild(resolution);
+
+        const beatsTitle = document.createElement('div');
+        beatsTitle.innerHTML = '<strong>Beats del arco</strong>';
+        card.appendChild(beatsTitle);
+
+        arc.beats.forEach((beat, beatIndex) => {
+            const beatBox = document.createElement('div');
+            beatBox.className = 'arc-beat';
+
+            const beatTitle = document.createElement('input');
+            beatTitle.type = 'text';
+            beatTitle.value = beat.title || '';
+            beatTitle.placeholder = 'Título del beat';
+            beatTitle.oninput = e => { beat.title = e.target.value; saveData(); };
+
+            const beatContent = document.createElement('textarea');
+            beatContent.placeholder = 'Qué pasa en este beat';
+            beatContent.value = beat.content || '';
+            beatContent.oninput = e => { beat.content = e.target.value; saveData(); };
+
+            const beatActions = document.createElement('div');
+            beatActions.className = 'card-actions';
+
+            const delBeat = document.createElement('button');
+            delBeat.className = 'small-btn';
+            delBeat.style.background = '#c0392b';
+            delBeat.textContent = 'Eliminar beat';
+            delBeat.onclick = () => {
+                if(confirm(`¿Eliminar "${beat.title}"?`)){
+                    arc.beats.splice(beatIndex, 1);
+                    saveData();
+                    renderArcMaps();
+                }
+            };
+
+            beatActions.appendChild(delBeat);
+            beatBox.appendChild(beatTitle);
+            beatBox.appendChild(beatContent);
+            beatBox.appendChild(beatActions);
+            card.appendChild(beatBox);
+        });
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const addBeat = document.createElement('button');
+        addBeat.className = 'small-btn';
+        addBeat.textContent = 'Añadir beat';
+        addBeat.onclick = () => createArcBeat(arc.id);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar arco';
+        delBtn.onclick = () => {
+            if(confirm(`¿Eliminar arco "${arc.title}"?`)){
+                arcMaps.splice(arcIndex, 1);
+                saveData();
+                renderArcMaps();
+            }
+        };
+
+        actions.appendChild(addBeat);
+        actions.appendChild(delBtn);
+        card.appendChild(actions);
+        list.appendChild(card);
+    });
+}
+
+function createWorldEntry(){
+    worldEntries.unshift({
+        id: uid(),
+        category: "Lugar",
+        title: "Nueva entrada",
+        description: "",
+        rules: "",
+        factions: "",
+        notes: ""
+    });
+    saveData();
+    renderWorldEntries();
+}
+
+function renderWorldEntries(){
+    const list = document.getElementById('world-list');
+    list.innerHTML = '';
+
+    if(worldEntries.length === 0){
+        list.innerHTML = '<p class="muted">No hay entradas del mundo todavía.</p>';
+        return;
+    }
+
+    worldEntries.forEach((entry, index) => {
+        const card = document.createElement('div');
+        card.className = 'world-card';
+
+        const category = document.createElement('select');
+        category.className = 'inline-select';
+        ["Lugar","Facción","Sistema de magia","Tecnología","Raza","Religión","Historia","Objeto","Evento"].forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            if(entry.category === opt) o.selected = true;
+            category.appendChild(o);
+        });
+        category.onchange = e => { entry.category = e.target.value; saveData(); };
+
+        const title = document.createElement('input');
+        title.type = 'text';
+        title.className = 'inline-input';
+        title.placeholder = 'Título';
+        title.value = entry.title || '';
+        title.oninput = e => { entry.title = e.target.value; saveData(); };
+
+        const description = document.createElement('textarea');
+        description.placeholder = 'Descripción';
+        description.value = entry.description || '';
+        description.oninput = e => { entry.description = e.target.value; saveData(); };
+
+        const rules = document.createElement('textarea');
+        rules.placeholder = 'Reglas / funcionamiento';
+        rules.value = entry.rules || '';
+        rules.oninput = e => { entry.rules = e.target.value; saveData(); };
+
+        const factions = document.createElement('textarea');
+        factions.placeholder = 'Relaciones / facciones / consecuencias';
+        factions.value = entry.factions || '';
+        factions.oninput = e => { entry.factions = e.target.value; saveData(); };
+
+        const notes = document.createElement('textarea');
+        notes.placeholder = 'Notas';
+        notes.value = entry.notes || '';
+        notes.oninput = e => { entry.notes = e.target.value; saveData(); };
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = () => {
+            if(confirm(`¿Eliminar "${entry.title}"?`)){
+                worldEntries.splice(index, 1);
+                saveData();
+                renderWorldEntries();
+            }
+        };
+
+        actions.appendChild(delBtn);
+
+        card.appendChild(category);
+        card.appendChild(title);
+        card.appendChild(description);
+        card.appendChild(rules);
+        card.appendChild(factions);
+        card.appendChild(notes);
+        card.appendChild(actions);
+
+        list.appendChild(card);
+    });
+}
+
+function getCurrentBoard(){
+    return boards.find(b => b.id === currentBoardId) || null;
+}
+
+function createBoard(){
+    const name = prompt("Nombre del tablero:");
+    if(!name) return;
+
+    const board = {
+        id: uid(),
+        name,
+        columns: [
+            { id: uid(), name: "Pendiente", cards: [] },
+            { id: uid(), name: "En proceso", cards: [] },
+            { id: uid(), name: "Hecho", cards: [] }
+        ]
+    };
+    boards.push(board);
+    currentBoardId = board.id;
+    saveData();
+    renderBoards();
+}
+
+function createOrganizerColumn(){
+    const board = getCurrentBoard();
+    if(!board){
+        alert("No hay tablero activo.");
+        return;
+    }
+
+    const name = prompt("Nombre de la columna:");
+    if(!name) return;
+
+    board.columns.push({
+        id: uid(),
+        name,
+        cards: []
+    });
+    saveData();
+    renderBoards();
+}
+
+function createOrganizerCard(columnId = null){
+    const board = getCurrentBoard();
+    if(!board){
+        alert("No hay tablero activo.");
+        return;
+    }
+
+    let targetColumn = null;
+
+    if(columnId){
+        targetColumn = board.columns.find(c => c.id === columnId);
+    } else {
+        targetColumn = board.columns[0];
+    }
+
+    if(!targetColumn){
+        alert("No hay columna disponible.");
+        return;
+    }
+
+    targetColumn.cards.unshift({
+        id: uid(),
+        title: "Nueva tarjeta",
+        content: "",
+        status: "",
+        priority: ""
+    });
+    saveData();
+    renderBoards();
+}
+
+function renderBoards(){
+    const boardList = document.getElementById('organizer-board-list');
+    const columnsBox = document.getElementById('organizer-columns');
+    boardList.innerHTML = '';
+    columnsBox.innerHTML = '';
+
+    if(boards.length === 0){
+        boardList.innerHTML = '<p class="muted">No hay tableros.</p>';
+        return;
+    }
+
+    boards.forEach((board, boardIndex) => {
+        const pill = document.createElement('div');
+        pill.className = 'organizer-board-pill' + (board.id === currentBoardId ? ' active' : '');
+        pill.textContent = board.name;
+        pill.onclick = () => {
+            currentBoardId = board.id;
+            renderBoards();
+        };
+
+        pill.oncontextmenu = (e) => {
+            e.preventDefault();
+            const action = prompt(`Tablero: ${board.name}\nEscribe: renombrar / eliminar`);
+            if(action === 'renombrar'){
+                const newName = prompt("Nuevo nombre:", board.name);
+                if(newName){
+                    board.name = newName;
+                    saveData();
+                    renderBoards();
+                }
+            }
+            if(action === 'eliminar'){
+                if(boards.length === 1){
+                    alert("No puedes eliminar el único tablero.");
+                    return;
+                }
+                if(confirm(`¿Eliminar tablero "${board.name}"?`)){
+                    boards.splice(boardIndex, 1);
+                    currentBoardId = boards[0]?.id || null;
+                    saveData();
+                    renderBoards();
+                }
+            }
+        };
+
+        boardList.appendChild(pill);
+    });
+
+    const board = getCurrentBoard();
+    if(!board) return;
+
+    board.columns.forEach((column, colIndex) => {
+        const col = document.createElement('div');
+        col.className = 'organizer-column';
+
+        const header = document.createElement('div');
+        header.className = 'organizer-column-header';
+
+        const title = document.createElement('h3');
+        title.textContent = column.name;
+
+        const headerActions = document.createElement('div');
+        headerActions.style.display = 'flex';
+        headerActions.style.gap = '6px';
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'small-btn';
+        addBtn.textContent = '+';
+        addBtn.onclick = () => createOrganizerCard(column.id);
+
+        const menuBtn = document.createElement('button');
+        menuBtn.className = 'small-btn';
+        menuBtn.textContent = '⋯';
+        menuBtn.onclick = () => {
+            const action = prompt(`Columna: ${column.name}\nEscribe: renombrar / eliminar`);
+            if(action === 'renombrar'){
+                const newName = prompt("Nuevo nombre:", column.name);
+                if(newName){
+                    column.name = newName;
+                    saveData();
+                    renderBoards();
+                }
+            }
+            if(action === 'eliminar'){
+                if(confirm(`¿Eliminar columna "${column.name}"?`)){
+                    board.columns.splice(colIndex, 1);
+                    saveData();
+                    renderBoards();
+                }
+            }
+        };
+
+        headerActions.appendChild(addBtn);
+        headerActions.appendChild(menuBtn);
+        header.appendChild(title);
+        header.appendChild(headerActions);
+        col.appendChild(header);
+
+        column.cards.forEach((card, cardIndex) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'organizer-card';
+
+            const cardTitle = document.createElement('input');
+            cardTitle.type = 'text';
+            cardTitle.value = card.title || '';
+            cardTitle.placeholder = 'Título';
+            cardTitle.oninput = e => {
+                card.title = e.target.value;
+                saveData();
+            };
+
+            const priority = document.createElement('input');
+            priority.type = 'text';
+            priority.value = card.priority || '';
+            priority.placeholder = 'Prioridad / etiqueta';
+            priority.oninput = e => {
+                card.priority = e.target.value;
+                saveData();
+            };
+
+            const content = document.createElement('textarea');
+            content.placeholder = 'Contenido / notas / checklist';
+            content.value = card.content || '';
+            content.oninput = e => {
+                card.content = e.target.value;
+                saveData();
+            };
+
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+
+            const leftBtn = document.createElement('button');
+            leftBtn.className = 'small-btn';
+            leftBtn.textContent = '←';
+            leftBtn.onclick = () => moveCard(board, colIndex, cardIndex, -1);
+
+            const rightBtn = document.createElement('button');
+            rightBtn.className = 'small-btn';
+            rightBtn.textContent = '→';
+            rightBtn.onclick = () => moveCard(board, colIndex, cardIndex, 1);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'small-btn';
+            delBtn.style.background = '#c0392b';
+            delBtn.textContent = 'Eliminar';
+            delBtn.onclick = () => {
+                if(confirm(`¿Eliminar tarjeta "${card.title}"?`)){
+                    column.cards.splice(cardIndex, 1);
+                    saveData();
+                    renderBoards();
+                }
+            };
+
+            actions.appendChild(leftBtn);
+            actions.appendChild(rightBtn);
+            actions.appendChild(delBtn);
+
+            cardEl.appendChild(cardTitle);
+            cardEl.appendChild(priority);
+            cardEl.appendChild(content);
+            cardEl.appendChild(actions);
+            col.appendChild(cardEl);
+        });
+
+        columnsBox.appendChild(col);
+    });
+}
+
+function moveCard(board, fromColumnIndex, cardIndex, direction){
+    const targetColumnIndex = fromColumnIndex + direction;
+    if(targetColumnIndex < 0 || targetColumnIndex >= board.columns.length) return;
+
+    const fromCol = board.columns[fromColumnIndex];
+    const toCol = board.columns[targetColumnIndex];
+    const [card] = fromCol.cards.splice(cardIndex, 1);
+    toCol.cards.unshift(card);
+    saveData();
+    renderBoards();
+}
+
+function buildBookText(){
+    if(!chapters || chapters.length === 0){
+        return '';
+    }
+
+    let result = '';
+    chapters.forEach((ch, index) => {
+        const title = ch && ch.name ? ch.name : `Capítulo ${index + 1}`;
+        const story = ch && ch.story ? ch.story : '';
+        result += title + '\n\n' + story;
+        if(index < chapters.length - 1){
+            result += '\n\n' + '========================================' + '\n\n';
+        }
+    });
+
+    return result;
+}
+
+function openBook(){
+    const text = buildBookText();
+    if(!text){
+        alert("No hay capítulos para mostrar en el libro.");
+        return;
+    }
+
+    const title = currentProject && currentProject.name ? `Libro - ${currentProject.name}` : 'Libro';
+    document.getElementById('book-title').textContent = title;
+    document.getElementById('book-text').value = text;
+    document.getElementById('book-modal').style.display = 'flex';
+}
+
+function closeBook(){
+    document.getElementById('book-modal').style.display = 'none';
+}
+
+async function copyBookText(){
+    const textarea = document.getElementById('book-text');
+    const text = textarea.value || '';
+
+    if(!text){
+        alert("No hay texto para copiar.");
+        return;
+    }
+
+    try {
+        if(navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(text);
+            alert("Libro copiado.");
+            return;
+        }
+    } catch (e) {
+        console.log("Clipboard API falló:", e);
+    }
+
+    try {
+        textarea.removeAttribute('readonly');
+        textarea.select();
+        textarea.setSelectionRange(0, 999999);
+        document.execCommand('copy');
+        textarea.setAttribute('readonly', true);
+        alert("Libro copiado.");
+    } catch (e) {
+        console.log("Copia manual falló:", e);
+        alert("No se pudo copiar automáticamente. Mantén pulsado sobre el texto y cópialo manualmente.");
+    }
+}
+
+
+function getTypeLabel(type){
+    if(type === 'continente') return 'Continente';
+    if(type === 'pais') return 'País';
+    if(type === 'region') return 'Región';
+    if(type === 'ciudad') return 'Ciudad';
+    if(type === 'pueblo') return 'Pueblo';
+    return 'Lugar';
+}
+
+function getTypeColor(type){
+    if(type === 'continente') return '#c8ab6e';
+    if(type === 'pais') return '#b98a4a';
+    if(type === 'region') return '#86a95a';
+    if(type === 'ciudad') return '#b23b3b';
+    if(type === 'pueblo') return '#6f58a8';
+    return '#555';
+}
+
+function getDefaultSizeByType(type){
+    if(type === 'continente') return 130;
+    if(type === 'pais') return 85;
+    if(type === 'region') return 50;
+    if(type === 'ciudad') return 16;
+    if(type === 'pueblo') return 10;
+    return 20;
+}
+
+function createMapPlace(type = 'continente'){
+    const label = getTypeLabel(type).toLowerCase();
+    const name = prompt(`Nombre del ${label}:`);
+    if(!name) return;
+
+    mapPlaces.push({
+        id: uid(),
+        name,
+        type,
+        parentId: '',
+        x: Math.floor(130 + Math.random() * 900),
+        y: Math.floor(110 + Math.random() * 470),
+        size: getDefaultSizeByType(type),
+        color: getTypeColor(type)
+    });
+
+    selectedMapPlaceId = mapPlaces[mapPlaces.length - 1].id;
+    saveData();
+    renderMapPage();
+}
+
+function generateSampleMap(){
+    if(mapPlaces.length > 0){
+        if(!confirm("Ya hay lugares en el mapa. ¿Quieres reemplazarlos por un ejemplo?")) return;
+    }
+
+    const continentId = uid();
+    const countryNorthId = uid();
+    const regionId = uid();
+    const cityId = uid();
+
+    mapPlaces = [
+        { id: continentId, name: 'Eryndor', type: 'continente', parentId: '', x: 325, y: 260, size: 155, color: getTypeColor('continente') },
+        { id: uid(), name: 'Valtheris', type: 'continente', parentId: '', x: 820, y: 260, size: 145, color: getTypeColor('continente') },
+        { id: countryNorthId, name: 'Arkhaven', type: 'pais', parentId: continentId, x: 290, y: 220, size: 92, color: getTypeColor('pais') },
+        { id: uid(), name: 'Nemor', type: 'pais', parentId: continentId, x: 385, y: 330, size: 80, color: getTypeColor('pais') },
+        { id: regionId, name: 'Cuenca Roja', type: 'region', parentId: countryNorthId, x: 285, y: 245, size: 50, color: getTypeColor('region') },
+        { id: cityId, name: 'Khar Dûn', type: 'ciudad', parentId: regionId, x: 286, y: 253, size: 16, color: getTypeColor('ciudad') },
+        { id: uid(), name: 'Risco Gris', type: 'pueblo', parentId: cityId, x: 322, y: 275, size: 10, color: getTypeColor('pueblo') },
+        { id: uid(), name: 'Ilymar', type: 'pais', parentId: '', x: 780, y: 245, size: 95, color: getTypeColor('pais') },
+        { id: uid(), name: 'Selva Lúgubre', type: 'region', parentId: '', x: 838, y: 303, size: 52, color: getTypeColor('region') },
+        { id: uid(), name: 'Vareth', type: 'ciudad', parentId: '', x: 803, y: 274, size: 16, color: getTypeColor('ciudad') },
+        { id: uid(), name: 'Puerto Ceniza', type: 'pueblo', parentId: '', x: 870, y: 332, size: 10, color: getTypeColor('pueblo') }
+    ];
+
+    selectedMapPlaceId = mapPlaces[0]?.id || null;
+    saveData();
+    renderMapPage();
+}
+
+function renderMapPage(){
+    renderMapPlacesList();
+    renderWorldMap();
+}
+
+function focusMapPlace(placeId){
+    selectedMapPlaceId = placeId;
+    renderMapPage();
+}
+
+function getMapPlaceName(placeId){
+    const place = mapPlaces.find(p => p.id === placeId);
+    return place ? place.name : '';
+}
+
+function renderWorldMap(){
+    const svg = document.getElementById('world-map-svg');
+    if(!svg) return;
+
+    svg.innerHTML = '';
+
+    const NS = 'http://www.w3.org/2000/svg';
+
+    const defs = document.createElementNS(NS, 'defs');
+    defs.innerHTML = `
+        <linearGradient id="seaGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#bfe3ff"></stop>
+            <stop offset="100%" stop-color="#6db8f1"></stop>
+        </linearGradient>
+        <filter id="mapShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.22"></feDropShadow>
+        </filter>
+    `;
+    svg.appendChild(defs);
+
+    const sea = document.createElementNS(NS, 'rect');
+    sea.setAttribute('x', '0');
+    sea.setAttribute('y', '0');
+    sea.setAttribute('width', '1200');
+    sea.setAttribute('height', '700');
+    sea.setAttribute('fill', 'url(#seaGradient)');
+    svg.appendChild(sea);
+
+    const atmosphere1 = document.createElementNS(NS, 'ellipse');
+    atmosphere1.setAttribute('cx', '210');
+    atmosphere1.setAttribute('cy', '120');
+    atmosphere1.setAttribute('rx', '240');
+    atmosphere1.setAttribute('ry', '90');
+    atmosphere1.setAttribute('fill', 'rgba(255,255,255,0.14)');
+    svg.appendChild(atmosphere1);
+
+    const atmosphere2 = document.createElementNS(NS, 'ellipse');
+    atmosphere2.setAttribute('cx', '960');
+    atmosphere2.setAttribute('cy', '520');
+    atmosphere2.setAttribute('rx', '260');
+    atmosphere2.setAttribute('ry', '110');
+    atmosphere2.setAttribute('fill', 'rgba(255,255,255,0.10)');
+    svg.appendChild(atmosphere2);
+
+    const landPaths = [
+        "M90,150 C165,82 315,78 408,138 C492,193 520,298 462,368 C406,435 272,458 171,414 C71,370 30,226 90,150 Z",
+        "M565,105 C655,62 825,82 928,164 C1016,234 1020,360 938,434 C857,506 718,518 615,462 C492,395 463,159 565,105 Z",
+        "M775,418 C840,388 922,394 999,435 C1085,482 1114,566 1067,624 C1024,678 909,690 823,651 C710,601 676,467 775,418 Z"
+    ];
+
+    landPaths.forEach((pathData) => {
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', '#dbc48d');
+        path.setAttribute('stroke', '#8e7042');
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('filter', 'url(#mapShadow)');
+        svg.appendChild(path);
+    });
+
+    const sortedPlaces = [...mapPlaces].sort((a, b) => {
+        const rank = { continente: 1, pais: 2, region: 3, ciudad: 4, pueblo: 5 };
+        return (rank[a.type] || 99) - (rank[b.type] || 99);
+    });
+
+    sortedPlaces.forEach((place) => {
+        const isSelected = place.id === selectedMapPlaceId;
+
+        if(place.type === 'continente' || place.type === 'pais' || place.type === 'region'){
+            const area = document.createElementNS(NS, 'ellipse');
+            area.setAttribute('cx', place.x);
+            area.setAttribute('cy', place.y);
+            area.setAttribute('rx', place.size);
+            area.setAttribute('ry', Math.max(24, Math.round(place.size * 0.58)));
+            area.setAttribute('fill', place.color + (isSelected ? 'bb' : '7a'));
+            area.setAttribute('stroke', isSelected ? '#111' : place.color);
+            area.setAttribute('stroke-width', isSelected ? '3' : '2');
+            area.setAttribute('filter', 'url(#mapShadow)');
+            area.style.cursor = 'pointer';
+            area.onclick = () => focusMapPlace(place.id);
+            svg.appendChild(area);
+        } else {
+            const point = document.createElementNS(NS, 'circle');
+            point.setAttribute('cx', place.x);
+            point.setAttribute('cy', place.y);
+            point.setAttribute('r', place.size);
+            point.setAttribute('fill', place.color);
+            point.setAttribute('stroke', isSelected ? '#111' : '#fff');
+            point.setAttribute('stroke-width', isSelected ? '3' : '2');
+            point.setAttribute('filter', 'url(#mapShadow)');
+            point.style.cursor = 'pointer';
+            point.onclick = () => focusMapPlace(place.id);
+            svg.appendChild(point);
+
+            if(place.type === 'ciudad'){
+                const tower = document.createElementNS(NS, 'rect');
+                tower.setAttribute('x', place.x - 4);
+                tower.setAttribute('y', place.y - place.size - 12);
+                tower.setAttribute('width', '8');
+                tower.setAttribute('height', '12');
+                tower.setAttribute('fill', '#333');
+                svg.appendChild(tower);
+            }
+        }
+
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('x', place.x);
+        label.setAttribute('y', place.y - Math.max(place.size, 12) - 10);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('class', 'map-label');
+        label.setAttribute('font-size', place.type === 'continente' ? '22' : place.type === 'pais' ? '18' : '14');
+        label.setAttribute('paint-order', 'stroke');
+        label.setAttribute('stroke', 'rgba(255,255,255,0.85)');
+        label.setAttribute('stroke-width', '4');
+        label.textContent = place.name;
+        svg.appendChild(label);
+    });
+}
+
+function renderMapPlacesList(){
+    const list = document.getElementById('map-places-list');
+    if(!list) return;
+
+    list.innerHTML = '';
+
+    if(mapPlaces.length === 0){
+        list.innerHTML = '<p class="muted">No hay lugares todavía. Crea uno o genera un ejemplo.</p>';
+        return;
+    }
+
+    const order = { continente: 1, pais: 2, region: 3, ciudad: 4, pueblo: 5 };
+    const sortedPlaces = [...mapPlaces].sort((a,b) => {
+        if((order[a.type] || 99) !== (order[b.type] || 99)){
+            return (order[a.type] || 99) - (order[b.type] || 99);
+        }
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    sortedPlaces.forEach((place) => {
+        const originalIndex = mapPlaces.findIndex(p => p.id === place.id);
+
+        const card = document.createElement('div');
+        card.className = 'map-place-card' + (place.id === selectedMapPlaceId ? ' map-selected' : '');
+
+        const typeBadge = document.createElement('div');
+        typeBadge.className = 'muted';
+        typeBadge.textContent = getTypeLabel(place.type);
+        typeBadge.style.marginBottom = '6px';
+        typeBadge.style.fontWeight = 'bold';
+
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.value = place.name || '';
+        name.placeholder = 'Nombre';
+        name.oninput = e => {
+            place.name = e.target.value;
+            saveData();
+            renderWorldMap();
+        };
+
+        const type = document.createElement('select');
+        ['continente','pais','region','ciudad','pueblo'].forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = getTypeLabel(t);
+            if(place.type === t) opt.selected = true;
+            type.appendChild(opt);
+        });
+        type.onchange = e => {
+            place.type = e.target.value;
+            place.color = getTypeColor(place.type);
+            if(!place.size || place.size < 1){
+                place.size = getDefaultSizeByType(place.type);
+            }
+            saveData();
+            renderMapPage();
+        };
+
+        const parent = document.createElement('select');
+        const emptyParent = document.createElement('option');
+        emptyParent.value = '';
+        emptyParent.textContent = 'Sin ubicación superior';
+        parent.appendChild(emptyParent);
+
+        mapPlaces
+            .filter(p => p.id !== place.id)
+            .forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${getTypeLabel(p.type)}: ${p.name}`;
+                if(place.parentId === p.id) opt.selected = true;
+                parent.appendChild(opt);
+            });
+
+        parent.onchange = e => {
+            place.parentId = e.target.value;
+            saveData();
+        };
+
+        const x = document.createElement('input');
+        x.type = 'number';
+        x.value = place.x;
+        x.placeholder = 'X';
+        x.oninput = e => {
+            place.x = Number(e.target.value || 0);
+            saveData();
+            renderWorldMap();
+        };
+
+        const y = document.createElement('input');
+        y.type = 'number';
+        y.value = place.y;
+        y.placeholder = 'Y';
+        y.oninput = e => {
+            place.y = Number(e.target.value || 0);
+            saveData();
+            renderWorldMap();
+        };
+
+        const size = document.createElement('input');
+        size.type = 'number';
+        size.value = place.size;
+        size.placeholder = 'Tamaño';
+        size.oninput = e => {
+            place.size = Number(e.target.value || getDefaultSizeByType(place.type));
+            saveData();
+            renderWorldMap();
+        };
+
+        const meta = document.createElement('div');
+        meta.className = 'muted';
+        meta.style.marginBottom = '8px';
+        meta.textContent = place.parentId ? `Dentro de: ${getMapPlaceName(place.parentId)}` : 'Sin jerarquía asignada';
+
+        const actions = document.createElement('div');
+        actions.className = 'controls';
+
+        const focusBtn = document.createElement('button');
+        focusBtn.textContent = 'Ver en mapa';
+        focusBtn.onclick = () => focusMapPlace(place.id);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = () => {
+            if(confirm(`¿Eliminar "${place.name}"?`)){
+                const deletedId = place.id;
+                mapPlaces.splice(originalIndex, 1);
+                mapPlaces.forEach(p => {
+                    if(p.parentId === deletedId) p.parentId = '';
+                });
+                if(selectedMapPlaceId === deletedId) selectedMapPlaceId = null;
+                saveData();
+                renderMapPage();
+            }
+        };
+
+        actions.appendChild(focusBtn);
+        actions.appendChild(delBtn);
+
+        card.appendChild(typeBadge);
+        card.appendChild(name);
+        card.appendChild(type);
+        card.appendChild(parent);
+        card.appendChild(meta);
+        card.appendChild(x);
+        card.appendChild(y);
+        card.appendChild(size);
+        card.appendChild(actions);
+
+        list.appendChild(card);
+    });
+}
+
+
+let transferMode = 'export';
+
+function buildExportData() {
+    if (!currentProject) return '';
+
+    const exportPackage = {
+        app: "Organizador Historia Visual",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        project: JSON.parse(JSON.stringify(currentProject))
+    };
+
+    return JSON.stringify(exportPackage, null, 2);
+}
+
+function openTransferModal(mode) {
+    transferMode = mode;
+
+    const modal = document.getElementById('transfer-modal');
+    const title = document.getElementById('transfer-title');
+    const textarea = document.getElementById('transfer-text');
+    const copyBtn = document.getElementById('transfer-copy-btn');
+    const importBtn = document.getElementById('transfer-import-btn');
+    const analyzeBtn = document.getElementById('transfer-analyze-btn');
+
+    if (mode === 'export') {
+        title.textContent = 'Copiar proyecto';
+        textarea.value = buildExportData();
+        textarea.readOnly = true;
+        textarea.placeholder = 'Aquí aparecerán los datos exportados del proyecto...';
+        copyBtn.style.display = 'inline-block';
+        importBtn.style.display = 'none';
+        analyzeBtn.style.display = 'none';
+    } else if (mode === 'import') {
+        title.textContent = 'Pegar proyecto';
+        textarea.value = '';
+        textarea.readOnly = false;
+        textarea.placeholder = 'Pega aquí el JSON exportado de otro proyecto...';
+        copyBtn.style.display = 'none';
+        importBtn.style.display = 'inline-block';
+        analyzeBtn.style.display = 'none';
+    } else {
+        title.textContent = 'Analizar texto y separar información';
+        textarea.value = '';
+        textarea.readOnly = false;
+        textarea.placeholder = 'Pega aquí una historia, capítulo o fragmento largo. Se intentarán extraer personajes, lugares, facciones y capítulos automáticamente.';
+        copyBtn.style.display = 'none';
+        importBtn.style.display = 'none';
+        analyzeBtn.style.display = 'inline-block';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeTransferModal() {
+    document.getElementById('transfer-modal').style.display = 'none';
+}
+
+async function copyTransferText() {
+    const textarea = document.getElementById('transfer-text');
+    const text = textarea.value || '';
+
+    if (!text) {
+        alert("No hay datos para copiar.");
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            alert("Proyecto copiado.");
+            return;
+        }
+    } catch (e) {
+        console.log("Clipboard API falló:", e);
+    }
+
+    try {
+        textarea.readOnly = false;
+        textarea.select();
+        textarea.setSelectionRange(0, 999999);
+        document.execCommand('copy');
+        textarea.readOnly = true;
+        alert("Proyecto copiado.");
+    } catch (e) {
+        console.log("Copia manual falló:", e);
+        alert("No se pudo copiar automáticamente. Cópialo manualmente.");
+    }
+}
+
+function sanitizeExtractedName(name) {
+    if(!name) return '';
+    return name
+        .replace(/[“”"'`]/g, '')
+        .replace(/[.,;:!?()\[\]{}]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function capitalizeFirst(text) {
+    if(!text) return '';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function uniqueByName(items) {
+    const seen = new Set();
+    return items.filter(item => {
+        const key = (item.name || '').toLowerCase();
+        if(!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function detectPlaceTypeFromContext(context) {
+    const value = (context || '').toLowerCase();
+    if(/continente|mundo/.test(value)) return 'continente';
+    if(/pa[ií]s|reino|imperio|naci[oó]n|rep[úu]blica/.test(value)) return 'pais';
+    if(/regi[oó]n|provincia|bosque|desierto|monta[ñn]a|monta[ñn]as|valle|isla|archipi[eé]lago|selva|mar/.test(value)) return 'region';
+    if(/ciudad|capital|puerto|fortaleza/.test(value)) return 'ciudad';
+    if(/pueblo|aldea|villa/.test(value)) return 'pueblo';
+    return 'region';
+}
+
+function extractNamedEntitiesFromText(rawText) {
+    const text = (rawText || '').replace(/\r/g, '');
+    const result = {
+        chapters: [],
+        characters: [],
+        places: [],
+        factions: [],
+        notes: []
+    };
+
+    if(!text.trim()) return result;
+
+    const chapterRegex = /(^|\n)\s*((?:cap[ií]tulo|chapter|parte|acto)\s+[^\n:]{0,80})/gim;
+    const chapterMatches = [...text.matchAll(chapterRegex)];
+    if(chapterMatches.length > 0) {
+        for(let i = 0; i < chapterMatches.length; i++) {
+            const current = chapterMatches[i];
+            const startIndex = current.index + current[1].length;
+            const title = sanitizeExtractedName(current[2]) || `Capítulo ${i + 1}`;
+            const endIndex = i + 1 < chapterMatches.length ? chapterMatches[i + 1].index : text.length;
+            const body = text.slice(startIndex + current[2].length, endIndex).trim();
+            result.chapters.push({ name: title, story: body, locationId: '', characterIds: [] });
+        }
+    } else {
+        const trimmed = text.trim();
+        if(trimmed) result.chapters.push({ name: `Importado ${chapters.length + 1}`, story: trimmed, locationId: '', characterIds: [] });
+    }
+
+    const placePatterns = [
+        /\b(continente|mundo|pa[ií]s|reino|imperio|naci[oó]n|rep[úu]blica|regi[oó]n|provincia|ciudad|capital|puerto|fortaleza|pueblo|aldea|villa|bosque|desierto|monta[ñn]as?|valle|isla|archipi[eé]lago|selva|mar)\s+(?:de|del|de la|de las|de los)?\s*([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+(?:\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+){0,3})/g,
+        /\b(?:en|desde|hacia|hasta|sobre|bajo)\s+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+(?:\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+){0,2})/g
+    ];
+
+    placePatterns.forEach((pattern, patternIndex) => {
+        let match;
+        while((match = pattern.exec(text)) !== null) {
+            const name = sanitizeExtractedName(patternIndex === 0 ? match[2] : match[1]);
+            const context = sanitizeExtractedName(match[1] || '');
+            if(!name || name.length < 3) continue;
+            if(/^(El|La|Los|Las|Un|Una|Y|Pero|Entonces|Cuando|Mientras|Aunque)$/i.test(name)) continue;
+            result.places.push({
+                name,
+                type: patternIndex === 0 ? detectPlaceTypeFromContext(context) : 'region',
+                context: patternIndex === 0 ? context : 'lugar mencionado'
+            });
+        }
+    });
+
+    const factionPattern = /\b(Orden|Clan|Casa|Legi[oó]n|Imperio|Reino|Gremio|Secta|Culto|Hermandad)\s+(?:de|del|de la|de los|de las)?\s*([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+(?:\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+){0,3})/g;
+    let factionMatch;
+    while((factionMatch = factionPattern.exec(text)) !== null) {
+        const fullName = sanitizeExtractedName(`${factionMatch[1]} ${factionMatch[2]}`);
+        if(fullName) result.factions.push({ name: fullName, category: 'Facción' });
+    }
+
+    const dialoguePattern = /(^|[.!?\n]\s*)([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]{2,}(?:\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]{2,})?)\s+(dijo|pregunt[oó]|respondi[oó]|pens[oó]|grit[oó]|susurr[oó]|mir[oó]|corri[oó]|sonri[oó]|entr[oó]|sali[oó])/g;
+    let dialogueMatch;
+    while((dialogueMatch = dialoguePattern.exec(text)) !== null) {
+        const name = sanitizeExtractedName(dialogueMatch[2]);
+        if(name && !/^Cap[ií]tulo\b/i.test(name)) result.characters.push({ name });
+    }
+
+    const rolePattern = /\b(?:el|la|los|las)?\s*(pr[ií]ncipe|princesa|rey|reina|general|capit[aá]n|doctor|doctora|maestro|maestra|señor|señora|duque|duquesa)\s+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+(?:\s+[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]+){0,2})/gi;
+    let roleMatch;
+    while((roleMatch = rolePattern.exec(text)) !== null) {
+        const name = sanitizeExtractedName(roleMatch[2]);
+        const role = capitalizeFirst((roleMatch[1] || '').toLowerCase());
+        if(name) result.characters.push({ name, role });
+    }
+
+    const capitalizedCounts = {};
+    const tokenPattern = /\b[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ'’\-]{2,}\b/g;
+    let tokenMatch;
+    while((tokenMatch = tokenPattern.exec(text)) !== null) {
+        const token = sanitizeExtractedName(tokenMatch[0]);
+        if(!token) continue;
+        if(/^(Cap[ií]tulo|Chapter|Parte|Acto|El|La|Los|Las|Un|Una|Pero|Aunque|Mientras|Entonces|Cuando|Después|Antes|Era|Fue|Había|Desde|Hasta|Sobre|Bajo)$/i.test(token)) continue;
+        capitalizedCounts[token] = (capitalizedCounts[token] || 0) + 1;
+    }
+
+    Object.entries(capitalizedCounts).forEach(([token, count]) => {
+        if(count >= 3 && !result.places.some(place => place.name.toLowerCase() === token.toLowerCase())) {
+            result.characters.push({ name: token });
+        }
+    });
+
+    result.characters = uniqueByName(result.characters).slice(0, 40);
+    result.places = uniqueByName(result.places).slice(0, 50);
+    result.factions = uniqueByName(result.factions).slice(0, 30);
+
+    result.notes.push(`Capítulos detectados: ${result.chapters.length}`);
+    result.notes.push(`Personajes detectados: ${result.characters.length}`);
+    result.notes.push(`Lugares detectados: ${result.places.length}`);
+    result.notes.push(`Facciones detectadas: ${result.factions.length}`);
+
+    return result;
+}
+
+function ensureCharacterExists(entry) {
+    const name = sanitizeExtractedName(entry.name || '');
+    if(!name) return null;
+    let existing = characters.find(ch => (ch.name || '').toLowerCase() === name.toLowerCase());
+    if(existing) {
+        if(entry.role && !existing.role) existing.role = entry.role;
+        return existing;
+    }
+    existing = {
+        id: uid(),
+        name,
+        role: entry.role || '',
+        age: '',
+        goal: '',
+        conflict: '',
+        appearance: '',
+        personality: '',
+        backstory: '',
+        notes: 'Detectado automáticamente desde un texto importado.'
+    };
+    characters.unshift(existing);
+    return existing;
+}
+
+function ensureWorldEntryExists(title, category, description) {
+    const cleanTitle = sanitizeExtractedName(title || '');
+    if(!cleanTitle) return null;
+    let existing = worldEntries.find(entry => (entry.title || '').toLowerCase() === cleanTitle.toLowerCase());
+    if(existing) return existing;
+    existing = {
+        id: uid(),
+        category: category || 'Lugar',
+        title: cleanTitle,
+        description: description || 'Extraído automáticamente desde un texto importado.',
+        rules: '',
+        factions: '',
+        notes: 'Creado automáticamente por el analizador de texto.'
+    };
+    worldEntries.unshift(existing);
+    return existing;
+}
+
+function ensureMapPlaceExists(entry) {
+    const name = sanitizeExtractedName(entry.name || '');
+    if(!name) return null;
+    let existing = mapPlaces.find(place => (place.name || '').toLowerCase() === name.toLowerCase());
+    if(existing) return existing;
+    existing = {
+        id: uid(),
+        name,
+        type: entry.type || 'region',
+        parentId: '',
+        x: Math.floor(130 + Math.random() * 900),
+        y: Math.floor(110 + Math.random() * 470),
+        size: getDefaultSizeByType(entry.type || 'region'),
+        color: getTypeColor(entry.type || 'region')
+    };
+    mapPlaces.push(existing);
+    return existing;
+}
+
+function analyzeTextFromModal() {
+    const textarea = document.getElementById('transfer-text');
+    const raw = (textarea.value || '').trim();
+
+    if(!raw) {
+        alert('Pega primero un texto para analizar.');
+        return;
+    }
+
+    const extracted = extractNamedEntitiesFromText(raw);
+
+    if(extracted.chapters.length === 0 && extracted.characters.length === 0 && extracted.places.length === 0 && extracted.factions.length === 0) {
+        alert('No encontré suficiente información clara en el texto. Prueba con un fragmento más largo o mejor separado.');
+        return;
+    }
+
+    const createdCharacterIds = [];
+    extracted.characters.forEach(character => {
+        const saved = ensureCharacterExists(character);
+        if(saved) createdCharacterIds.push(saved.id);
+    });
+
+    let firstPlaceId = '';
+    extracted.places.forEach(place => {
+        const savedPlace = ensureMapPlaceExists(place);
+        ensureWorldEntryExists(place.name, 'Lugar', `Tipo sugerido: ${getTypeLabel(place.type)}. Detectado automáticamente desde un texto importado.`);
+        if(savedPlace && !firstPlaceId) firstPlaceId = savedPlace.id;
+    });
+
+    extracted.factions.forEach(faction => {
+        ensureWorldEntryExists(faction.name, 'Facción', 'Detectada automáticamente desde un texto importado.');
+    });
+
+    const addedChapters = [];
+    extracted.chapters.forEach((chapter, index) => {
+        const importedChapter = {
+            id: uid(),
+            name: chapter.name || `Importado ${chapters.length + index + 1}`,
+            story: chapter.story || '',
+            locationId: firstPlaceId || '',
+            characterIds: createdCharacterIds.slice(0, 8)
+        };
+        chapters.push(importedChapter);
+        addedChapters.push(importedChapter);
+    });
+
+    globalTags.unshift({
+        id: uid(),
+        tag: `Análisis ${new Date().toLocaleDateString()}`,
+        text: [
+            'Resumen automático del texto importado:',
+            ...extracted.notes,
+            '',
+            extracted.characters.length ? 'Personajes: ' + extracted.characters.map(c => c.name).join(', ') : 'Personajes: ninguno',
+            extracted.places.length ? 'Lugares: ' + extracted.places.map(p => p.name).join(', ') : 'Lugares: ninguno',
+            extracted.factions.length ? 'Facciones: ' + extracted.factions.map(f => f.name).join(', ') : 'Facciones: ninguna'
+        ].join('\n'),
+        children: [],
+        collapsed: false
+    });
+
+    saveData();
+    renderChapterList();
+    renderCharacters();
+    renderWorldEntries();
+    renderMapPage();
+    renderBlocks();
+
+    if(addedChapters.length > 0) loadChapter(addedChapters[0]);
+    showPage('story');
+    closeTransferModal();
+
+    alert(`Texto analizado. Añadí ${addedChapters.length} capítulo(s), ${extracted.characters.length} personaje(s), ${extracted.places.length} lugar(es) y ${extracted.factions.length} facción(es). Revísalo porque la extracción es automática y puede necesitar ajustes.`);
+}
+
+function importProjectFromText() {
+    const textarea = document.getElementById('transfer-text');
+    const raw = textarea.value.trim();
+
+    if (!raw) {
+        alert("Pega primero los datos del proyecto.");
+        return;
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+
+        if (!parsed.project || typeof parsed.project !== 'object') {
+            alert("El texto pegado no tiene un proyecto válido.");
+            return;
+        }
+
+        const importedProject = parsed.project;
+
+        if (!importedProject.id) importedProject.id = uid();
+        if (!importedProject.name) importedProject.name = "Proyecto importado";
+
+        let baseName = importedProject.name;
+        let finalName = baseName;
+        let count = 2;
+
+        while (projects.some(p => p.name === finalName)) {
+            finalName = `${baseName} (${count})`;
+            count++;
+        }
+
+        importedProject.name = finalName;
+        importedProject.chapters = importedProject.chapters || [];
+        importedProject.globalTags = importedProject.globalTags || [];
+        importedProject.tagColors = importedProject.tagColors || {};
+        importedProject.ideas = importedProject.ideas || [];
+        importedProject.characters = importedProject.characters || [];
+        importedProject.worldEntries = importedProject.worldEntries || [];
+        importedProject.boards = importedProject.boards || [];
+        importedProject.relationships = importedProject.relationships || [];
+        importedProject.timelineEvents = importedProject.timelineEvents || [];
+        importedProject.arcMaps = importedProject.arcMaps || [];
+        importedProject.mapPlaces = importedProject.mapPlaces || [];
+
+        projects.push(importedProject);
+        saveData();
+        loadProject(importedProject);
+        renderProjectList();
+        renderChapterList();
+        showPage('story');
+        closeTransferModal();
+
+        alert(`Proyecto importado como "${importedProject.name}".`);
+    } catch (error) {
+        console.error(error);
+        alert("El contenido pegado no es JSON válido o está roto.");
+    }
+}
+
+document.getElementById('transfer-modal').addEventListener('click', function(e){
+    if (e.target === this) closeTransferModal();
+});
+
+document.getElementById('book-modal').addEventListener('click', function(e){
+    if(e.target === this){
+        closeBook();
+    }
+});
+
+document.addEventListener('click', function(e){
+    const chapterPanel = document.getElementById('chapter-panel');
+    const projectPanel = document.getElementById('project-panel');
+    const header = document.querySelector('header');
+    if(!header.contains(e.target)){
+        if(chapterPanel.style.display === 'block') chapterPanel.style.display = 'none';
+        if(projectPanel.style.display === 'block') projectPanel.style.display = 'none';
+    }
+});
+</script>
+
+</body>
+</html>
