@@ -3357,6 +3357,62 @@ document.addEventListener('click', function(e){
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+    <script>
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const authEstado = document.getElementById("authEstado");
+
+  document.getElementById("btnRegistro").addEventListener("click", async () => {
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(
+        emailInput.value.trim(),
+        passwordInput.value
+      );
+
+      await db.collection("usuarios").doc(cred.user.uid).set({
+        email: cred.user.email,
+        nombre: cred.user.email.split("@")[0],
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      authEstado.textContent = "Cuenta creada: " + cred.user.email;
+    } catch (error) {
+      authEstado.textContent = "Error al crear cuenta: " + error.message;
+      console.error(error);
+    }
+  });
+
+  document.getElementById("btnLogin").addEventListener("click", async () => {
+    try {
+      const cred = await auth.signInWithEmailAndPassword(
+        emailInput.value.trim(),
+        passwordInput.value
+      );
+      authEstado.textContent = "Sesión iniciada: " + cred.user.email;
+    } catch (error) {
+      authEstado.textContent = "Error al iniciar sesión: " + error.message;
+      console.error(error);
+    }
+  });
+
+  document.getElementById("btnLogout").addEventListener("click", async () => {
+    try {
+      await auth.signOut();
+      authEstado.textContent = "Sesión cerrada";
+    } catch (error) {
+      authEstado.textContent = "Error al cerrar sesión: " + error.message;
+      console.error(error);
+    }
+  });
+
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      authEstado.textContent = "Conectado como: " + user.email;
+    } else {
+      authEstado.textContent = "No has iniciado sesión";
+    }
+  });
+</script>
 </script>
     <div id="authBox" style="padding:16px; border:1px solid #ccc; margin:16px 0;">
   <h2>Cuenta</h2>
