@@ -809,7 +809,7 @@ header button:hover { background:#666; }
                     <button class="small-btn" onclick="loginUser()">Iniciar sesión</button>
                     <button class="small-btn" onclick="logoutUser()">Cerrar sesión</button>
                 </div>
-                <p id="auth-message" class="muted">Crea una cuenta para publicar y ver obras de otros.</p>
+                <p id="auth-message" class="muted">Crea una cuenta para publicar y ver obras de otros.</p><p class="muted" style="font-size:0.9em;">Si al crear cuenta sale error de dominio, agrega tu dominio de GitHub Pages en Firebase Authentication → Settings → Authorized domains.</p>
             </div>
             <div class="auth-card">
                 <h3 style="margin-top:0;">Subir texto</h3>
@@ -3462,6 +3462,8 @@ function translateFirebaseError(error) {
         'auth/network-request-failed': 'Falló la conexión. Revisa tu internet e intenta otra vez.',
         'auth/too-many-requests': 'Demasiados intentos. Espera un momento e inténtalo otra vez.',
         'auth/operation-not-allowed': 'El acceso con correo/contraseña no está activado en Firebase Authentication.',
+        'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase. En Firebase Authentication agrega tu dominio de GitHub Pages en Authorized domains.',
+        'auth/internal-error': 'Firebase devolvió un error interno. Revisa la configuración de Authentication.',
         'permission-denied': 'Firebase rechazó la operación por reglas de seguridad.',
         'unavailable': 'Firebase no respondió. Inténtalo otra vez en un momento.'
     };
@@ -3538,6 +3540,8 @@ async function registerUser() {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         setAuthMessage('Cuenta creada: ' + (cred.user?.email || email));
         document.getElementById('session-status').textContent = 'Conectado como ' + (cred.user?.email || email);
+        const confirmEl = document.getElementById('auth-password-confirm');
+        if(confirmEl) confirmEl.value = '';
 
         try {
             await ensureUserProfile(cred.user);
@@ -3904,7 +3908,11 @@ if(firebaseReady) {
         document.getElementById('session-status').textContent = user ? ('Conectado como ' + user.email) : 'No has iniciado sesión';
         if(user) setAuthMessage('Sesión activa: ' + user.email);
         if(user) {
-            await ensureUserProfile(user);
+            try {
+                await ensureUserProfile(user);
+            } catch (profileError) {
+                console.error('No se pudo sincronizar el perfil al restaurar la sesión.', profileError);
+            }
             loadMyWorks();
         } else {
             document.getElementById('my-works').innerHTML = '<p class="muted">Inicia sesión para ver tus obras publicadas.</p>';
