@@ -802,6 +802,8 @@ header button:hover { background:#666; }
                 <input id="auth-email" type="email" placeholder="correo@ejemplo.com">
                 <label>Contraseña</label>
                 <input id="auth-password" type="password" placeholder="Mínimo 6 caracteres">
+                <label>Confirmar contraseña</label>
+                <input id="auth-password-confirm" type="password" placeholder="Repite la contraseña para crear la cuenta">
                 <div class="card-actions">
                     <button class="small-btn" onclick="registerUser()">Crear cuenta</button>
                     <button class="small-btn" onclick="loginUser()">Iniciar sesión</button>
@@ -1260,9 +1262,7 @@ function showPage(page){
         'arcs-container',
         'world-container',
         'map-container',
-        'organizer-container',
-        'auth-container',
-        'cloud-container'
+        'organizer-container'
     ];
 
     sections.forEach(id => {
@@ -1301,11 +1301,6 @@ function showPage(page){
     } else if(page === 'organizer'){
         document.getElementById('organizer-container').classList.remove('hidden');
         renderBoards();
-    } else if(page === 'auth'){
-        document.getElementById('auth-container').classList.remove('hidden');
-    } else if(page === 'cloud'){
-        document.getElementById('cloud-container').classList.remove('hidden');
-        updatePublishDefaults();
     }
 }
 
@@ -3429,6 +3424,14 @@ document.addEventListener('click', function(e){
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+const originalShowPage = showPage;
+showPage = function(page) {
+    originalShowPage(page);
+    const extra = ['auth-container','cloud-container'];
+    extra.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    if(page === 'auth') document.getElementById('auth-container').classList.remove('hidden');
+    if(page === 'cloud') document.getElementById('cloud-container').classList.remove('hidden');
+};
 
 let firebaseReady = false;
 let auth = null;
@@ -3445,18 +3448,48 @@ const firebaseConfig = {
   measurementId: "G-1PJCJZX008"
 };
 
-try {
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db = firebase.firestore();
-    firebaseReady = true;
-    document.getElementById('firebase-status').textContent = 'Conectado';
-    document.getElementById('firebase-status').className = 'status-ok';
-    console.log('Firebase conectado');
-} catch (error) {
-    console.error(error);
-    document.getElementById('firebase-status').textContent = 'Error';
-    document.getElementById('firebase-status').className = 'status-bad';
+function translateFirebaseError(error) {
+    const code = error?.code || '';
+    const raw = error?.message || 'Error desconocido.';
+    const map = {
+        'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Prueba iniciar sesión.',
+        'auth/invalid-email': 'El correo no tiene un formato válido.',
+        'auth/weak-password': 'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
+        'auth/missing-password': 'Falta escribir la contraseña.',
+        'auth/user-not-found': 'No existe una cuenta con ese correo.',
+        'auth/wrong-password': 'La contraseña no coincide.',
+        'auth/invalid-credential': 'Correo o contraseña incorrectos.',
+        'auth/network-request-failed': 'Falló la conexión. Revisa tu internet e intenta otra vez.',
+        'auth/too-many-requests': 'Demasiados intentos. Espera un momento e inténtalo otra vez.',
+        'auth/operation-not-allowed': 'El acceso con correo/contraseña no está activado en Firebase Authentication.',
+        'permission-denied': 'Firebase rechazó la operación por reglas de seguridad.',
+        'unavailable': 'Firebase no respondió. Inténtalo otra vez en un momento.'
+    };
+    return map[code] || raw;
+}
+
+function setFirebaseStatus(label, ok=false) {
+    const el = document.getElementById('firebase-status');
+    if(!el) return;
+    el.textContent = label;
+    el.className = ok ? 'status-ok' : 'status-bad';
+}
+
+function initFirebase() {
+    try {
+        const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+        auth = app.auth ? app.auth() : firebase.auth();
+        db = app.firestore ? app.firestore() : firebase.firestore();
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => console.warn('No se pudo fijar persistencia local:', err));
+        firebaseReady = true;
+        setFirebaseStatus('Conectado', true);
+        console.log('Firebase conectado');
+    } catch (error) {
+        console.error(error);
+        firebaseReady = false;
+        setFirebaseStatus('Error', false);
+        setAuthMessage('No se pudo iniciar Firebase: ' + translateFirebaseError(error), true);
+    }
 }
 
 function setAuthMessage(msg, isError=false) {
@@ -3471,88 +3504,91 @@ function updatePublishDefaults() {
     if(titleEl && currentProject && !titleEl.value) titleEl.value = currentProject.name || 'Nueva obra';
 }
 
-async function ensureUserProfile(user) {
-    if(!db || !user) return;
-    try {
-        await db.collection('usuarios').doc(user.uid).set({
-            email: user.email || '',
-            nombre: (user.email || '').split('@')[0] || 'usuario',
-            actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-    } catch(e) {
-        console.warn('No se pudo guardar perfil de usuario:', e);
-    }
-}
-
-function translateFirebaseError(error) {
-    const code = error.code || '';
-    const map = {
-        'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
-        'auth/invalid-email': 'El correo no tiene un formato válido.',
-        'auth/weak-password': 'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
-        'auth/user-not-found': 'No existe una cuenta con ese correo.',
-        'auth/wrong-password': 'La contraseña es incorrecta.',
-        'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
-        'auth/network-request-failed': 'Error de red. Verifica tu conexión a internet.',
-        'auth/operation-not-allowed': 'Este método de inicio de sesión no está habilitado.',
-        'auth/user-disabled': 'Esta cuenta ha sido deshabilitada.',
-        'auth/invalid-credential': 'Correo o contraseña incorrectos.',
-        'auth/missing-password': 'Escribe una contraseña.',
-        'auth/missing-email': 'Escribe un correo.',
-    };
-    return map[code] || ('Error: ' + (error.message || code));
-}
-
 function getAuthFields() {
     return {
-        email: (document.getElementById('auth-email').value || '').trim(),
-        password: document.getElementById('auth-password').value || ''
+        email: document.getElementById('auth-email').value.trim(),
+        password: document.getElementById('auth-password').value,
+        passwordConfirm: (document.getElementById('auth-password-confirm')?.value || '')
     };
+}
+
+function validateEmailFormat(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function ensureUserProfile(user) {
+    if(!db || !user) return;
+    await db.collection('usuarios').doc(user.uid).set({
+        email: user.email || '',
+        nombre: (user.email || '').split('@')[0] || 'usuario',
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
 }
 
 async function registerUser() {
     if(!firebaseReady) return setAuthMessage('Firebase no está conectado.', true);
-    const {email, password} = getAuthFields();
-    if(!email) return setAuthMessage('Escribe tu correo electrónico.', true);
-    if(!password) return setAuthMessage('Escribe una contraseña.', true);
+    const {email, password, passwordConfirm} = getAuthFields();
+    if(!email || !password) return setAuthMessage('Escribe correo y contraseña.', true);
+    if(!validateEmailFormat(email)) return setAuthMessage('Escribe un correo válido.', true);
     if(password.length < 6) return setAuthMessage('La contraseña debe tener al menos 6 caracteres.', true);
+    if(passwordConfirm && password !== passwordConfirm) return setAuthMessage('Las contraseñas no coinciden.', true);
+
     setAuthMessage('Creando cuenta…');
     try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        await ensureUserProfile(cred.user);
-        setAuthMessage('✅ Cuenta creada correctamente: ' + cred.user.email);
+        setAuthMessage('Cuenta creada: ' + (cred.user?.email || email));
+        document.getElementById('session-status').textContent = 'Conectado como ' + (cred.user?.email || email);
+
+        try {
+            await ensureUserProfile(cred.user);
+        } catch (profileError) {
+            console.error('No se pudo guardar el perfil, pero la cuenta sí se creó.', profileError);
+            setAuthMessage('Cuenta creada, pero el perfil no se guardó completo. Revisa las reglas de Firestore.', true);
+        }
+
+        loadMyWorks();
+        loadPublicWorks();
     } catch (error) {
         console.error(error);
-        setAuthMessage(translateFirebaseError(error), true);
+        setAuthMessage('Error al crear cuenta: ' + translateFirebaseError(error), true);
     }
 }
 
 async function loginUser() {
     if(!firebaseReady) return setAuthMessage('Firebase no está conectado.', true);
     const {email, password} = getAuthFields();
-    if(!email) return setAuthMessage('Escribe tu correo electrónico.', true);
-    if(!password) return setAuthMessage('Escribe tu contraseña.', true);
+    if(!email || !password) return setAuthMessage('Escribe correo y contraseña.', true);
+    if(!validateEmailFormat(email)) return setAuthMessage('Escribe un correo válido.', true);
+
     setAuthMessage('Iniciando sesión…');
     try {
         const cred = await auth.signInWithEmailAndPassword(email, password);
-        await ensureUserProfile(cred.user);
-        setAuthMessage('✅ Sesión iniciada: ' + cred.user.email);
+        setAuthMessage('Sesión iniciada: ' + cred.user.email);
+        try {
+            await ensureUserProfile(cred.user);
+        } catch (profileError) {
+            console.error('No se pudo actualizar el perfil al iniciar sesión.', profileError);
+        }
+        loadMyWorks();
+        loadPublicWorks();
     } catch (error) {
         console.error(error);
-        setAuthMessage(translateFirebaseError(error), true);
+        setAuthMessage('Error al iniciar sesión: ' + translateFirebaseError(error), true);
     }
 }
 
 async function logoutUser() {
-    if(!firebaseReady) return;
+    if(!firebaseReady || !auth) return;
     try {
         await auth.signOut();
         setAuthMessage('Sesión cerrada.');
     } catch (error) {
         console.error(error);
-        setAuthMessage('Error al cerrar sesión: ' + error.message, true);
+        setAuthMessage('Error al cerrar sesión: ' + translateFirebaseError(error), true);
     }
 }
+
+initFirebase();
 
 function cloneProjectForCloud(project) {
     return JSON.parse(JSON.stringify(project));
@@ -3630,7 +3666,7 @@ function renderWorkCard(docSnap, targetEl, isMine=false) {
         const snap = await db.collection('obras').doc(docSnap.id).get();
         const fresh = snap.data();
         if(!fresh || !fresh.contenido) return alert('La obra no tiene contenido válido.');
-        importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '');
+        importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '', { preserveCloudLink: isMine, publica: !!fresh.publica });
     };
     actions.appendChild(readBtn);
 
@@ -3644,7 +3680,7 @@ function renderWorkCard(docSnap, targetEl, isMine=false) {
             document.getElementById('publish-public').checked = !!data.publica;
             const snap = await db.collection('obras').doc(docSnap.id).get();
             const fresh = snap.data();
-            if(fresh && fresh.contenido) importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '');
+            if(fresh && fresh.contenido) importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '', { preserveCloudLink: true, publica: !!fresh.publica });
         };
         actions.appendChild(fillBtn);
 
@@ -3731,11 +3767,12 @@ async function loadPublicWorks() {
     }
 }
 
-function importCloudProject(projectData, cloudId=null, description='') {
+function importCloudProject(projectData, cloudId=null, description='', options={}) {
     try {
         const importedProject = JSON.parse(JSON.stringify(projectData));
+        const preserveCloudLink = !!options.preserveCloudLink;
         importedProject.id = importedProject.id || uid();
-        importedProject.cloudId = cloudId || importedProject.cloudId || null;
+        importedProject.cloudId = preserveCloudLink ? (cloudId || importedProject.cloudId || null) : null;
         importedProject.chapters = importedProject.chapters || [];
         importedProject.globalTags = importedProject.globalTags || [];
         importedProject.tagColors = importedProject.tagColors || {};
@@ -3750,7 +3787,7 @@ function importCloudProject(projectData, cloudId=null, description='') {
         importedProject.name = importedProject.name || 'Obra importada';
         importedProject.description = description || importedProject.description || '';
 
-        const localCopy = {...importedProject, id: uid(), name: importedProject.name + ' (copia)'};
+        const localCopy = {...importedProject, id: uid(), name: preserveCloudLink ? importedProject.name : (importedProject.name + ' (copia)')};
         projects.push(localCopy);
         saveData();
         loadProject(localCopy);
@@ -3758,8 +3795,9 @@ function importCloudProject(projectData, cloudId=null, description='') {
         renderChapterList();
         document.getElementById('publish-title').value = importedProject.name || '';
         document.getElementById('publish-description').value = description || '';
+        document.getElementById('publish-public').checked = options.publica ?? true;
         showPage('story');
-        alert('Obra cargada al editor como copia local.');
+        alert(preserveCloudLink ? 'Obra cargada al editor.' : 'Obra cargada al editor como copia local.');
     } catch (error) {
         console.error(error);
         alert('No se pudo importar la obra de la nube.');
@@ -3863,25 +3901,26 @@ document.getElementById('chapter-file').addEventListener('change', async (e) => 
 if(firebaseReady) {
     auth.onAuthStateChanged(async (user) => {
         currentUser = user || null;
-        const sessionEl = document.getElementById('session-status');
-        if(sessionEl) sessionEl.textContent = user ? ('Conectado como ' + user.email) : 'No has iniciado sesión';
+        document.getElementById('session-status').textContent = user ? ('Conectado como ' + user.email) : 'No has iniciado sesión';
+        if(user) setAuthMessage('Sesión activa: ' + user.email);
         if(user) {
             await ensureUserProfile(user);
             loadMyWorks();
         } else {
-            const myWorks = document.getElementById('my-works');
-            if(myWorks) myWorks.innerHTML = '<p class="muted">Inicia sesión para ver tus obras publicadas.</p>';
+            document.getElementById('my-works').innerHTML = '<p class="muted">Inicia sesión para ver tus obras publicadas.</p>';
         }
         loadPublicWorks();
     });
 } else {
-    const pubWorks = document.getElementById('public-works');
-    const myWorks = document.getElementById('my-works');
-    if(pubWorks) pubWorks.innerHTML = '<p class="muted">Firebase no está conectado.</p>';
-    if(myWorks) myWorks.innerHTML = '<p class="muted">Firebase no está conectado.</p>';
+    document.getElementById('public-works').innerHTML = '<p class="muted">Firebase no está conectado.</p>';
+    document.getElementById('my-works').innerHTML = '<p class="muted">Firebase no está conectado.</p>';
 }
 
 updatePublishDefaults();
+window.addEventListener('load', () => {
+    updatePublishDefaults();
+    loadPublicWorks();
+});
 </script>
 
 </body>
