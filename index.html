@@ -529,6 +529,21 @@ header button:hover { background:#666; }
     .story-editor textarea { height:420px; }
     .story-sidebar { position:static; }
 }
+
+.cloud-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; }
+.auth-card, .cloud-card { background:#fff; border:1px solid #ddd; border-radius:12px; padding:14px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
+.auth-card input, .auth-card textarea, .cloud-card input, .cloud-card textarea, .cloud-card select {
+    width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccc; border-radius:6px; margin:6px 0;
+}
+.cloud-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
+.work-card { background:#fff; border:1px solid #ddd; border-radius:12px; padding:12px; box-shadow:0 1px 4px rgba(0,0,0,0.05); display:flex; flex-direction:column; gap:8px; }
+.work-card h3 { margin:0; font-size:1.1em; }
+.work-meta { color:#666; font-size:0.92em; }
+.notice-box { background:#f7f7f7; border:1px solid #ddd; border-radius:10px; padding:10px; margin-bottom:12px; }
+.status-ok { color:#0b7a20; font-weight:bold; }
+.status-bad { color:#b42318; font-weight:bold; }
+.hidden-file-input { display:none; }
+
 </style>
 </head>
 <body>
@@ -552,6 +567,11 @@ header button:hover { background:#666; }
         <button onclick="openTransferModal('export')">Copiar proyecto</button>
         <button onclick="openTransferModal('import')">Pegar proyecto</button>
         <button onclick="openTransferModal('analyze')">Analizar texto</button>
+        <button onclick="showPage('auth')">Cuenta</button>
+        <button onclick="showPage('cloud')">Biblioteca</button>
+        <button onclick="triggerFullStoryUpload()">Subir obra</button>
+        <button onclick="triggerChapterUpload()">Subir capítulo</button>
+        <button onclick="showPage('cloud')">Publicar</button>
         <button onclick="openBook()">Libro</button>
     </div>
 </header>
@@ -770,6 +790,64 @@ header button:hover { background:#666; }
         <div id="organizer-columns" class="organizer-columns"></div>
     </div>
 
+    <div id="auth-container" class="page-box hidden">
+        <h2 class="section-title">Cuenta</h2>
+        <div class="cloud-grid">
+            <div class="auth-card">
+                <div class="notice-box">
+                    <div>Estado de Firebase: <span id="firebase-status" class="status-bad">Sin conectar</span></div>
+                    <div>Sesión: <span id="session-status">No has iniciado sesión</span></div>
+                </div>
+                <label>Correo</label>
+                <input id="auth-email" type="email" placeholder="correo@ejemplo.com">
+                <label>Contraseña</label>
+                <input id="auth-password" type="password" placeholder="Mínimo 6 caracteres">
+                <div class="card-actions">
+                    <button class="small-btn" onclick="registerUser()">Crear cuenta</button>
+                    <button class="small-btn" onclick="loginUser()">Iniciar sesión</button>
+                    <button class="small-btn" onclick="logoutUser()">Cerrar sesión</button>
+                </div>
+                <p id="auth-message" class="muted">Crea una cuenta para publicar y ver obras de otros.</p>
+            </div>
+            <div class="auth-card">
+                <h3 style="margin-top:0;">Subir texto</h3>
+                <p class="muted">Puedes subir una obra completa en .txt o .md. Si encuentra títulos tipo “Capítulo 1”, los separa solos.</p>
+                <div class="card-actions">
+                    <button class="small-btn" onclick="triggerFullStoryUpload()">Subir obra completa</button>
+                    <button class="small-btn" onclick="triggerChapterUpload()">Subir capítulo</button>
+                </div>
+                <p class="muted">También puedes seguir usando Analizar texto y Pegar proyecto.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="cloud-container" class="page-box hidden">
+        <h2 class="section-title">Biblioteca y publicación</h2>
+        <div class="cloud-grid">
+            <div class="cloud-card">
+                <h3 style="margin-top:0;">Publicar proyecto actual</h3>
+                <label>Título público</label>
+                <input id="publish-title" type="text" placeholder="Título de la obra">
+                <label>Descripción</label>
+                <textarea id="publish-description" placeholder="Resumen o descripción corta" style="min-height:100px;"></textarea>
+                <label><input id="publish-public" type="checkbox" checked> Obra pública</label>
+                <div class="card-actions">
+                    <button class="small-btn" onclick="publishCurrentProject()">Publicar / actualizar</button>
+                    <button class="small-btn" onclick="loadMyWorks()">Actualizar mis obras</button>
+                </div>
+                <p class="muted">Se publica el proyecto actual completo con sus capítulos, personajes y notas.</p>
+            </div>
+            <div class="cloud-card">
+                <h3 style="margin-top:0;">Mis obras publicadas</h3>
+                <div id="my-works" class="cloud-list"></div>
+            </div>
+        </div>
+        <div class="cloud-card" style="margin-top:12px;">
+            <h3 style="margin-top:0;">Explorar obras públicas</h3>
+            <div id="public-works" class="cloud-list"></div>
+        </div>
+    </div>
+
 </div>
 
 <div id="book-modal">
@@ -840,6 +918,9 @@ header button:hover { background:#666; }
         " placeholder="Aquí aparecerán los datos exportados o aquí puedes pegar un proyecto..."></textarea>
     </div>
 </div>
+
+<input id="full-story-file" class="hidden-file-input" type="file" accept=".txt,.md,.json">
+<input id="chapter-file" class="hidden-file-input" type="file" accept=".txt,.md">
 
 <script>
 let projects = [];
@@ -3335,93 +3416,446 @@ document.addEventListener('click', function(e){
     }
 });
 </script>
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6xktN83m-OOgVd0hB_parZj0jcNTdd8w",
-    authDomain: "ohv-historias.firebaseapp.com",
-    projectId: "ohv-historias",
-    storageBucket: "ohv-historias.firebasestorage.app",
-    messagingSenderId: "503873499417",
-    appId: "1:503873499417:web:dcca36af0f12b68dd39588",
-    measurementId: "G-E3G9HCRG5R"
-  };
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-    <script>
-  const emailInput = document.getElementById("email");
-  const passwordInput = document.getElementById("password");
-  const authEstado = document.getElementById("authEstado");
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const originalShowPage = showPage;
+showPage = function(page) {
+    originalShowPage(page);
+    const extra = ['auth-container','cloud-container'];
+    extra.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    if(page === 'auth') document.getElementById('auth-container').classList.remove('hidden');
+    if(page === 'cloud') document.getElementById('cloud-container').classList.remove('hidden');
+};
 
-  document.getElementById("btnRegistro").addEventListener("click", async () => {
+let firebaseReady = false;
+let auth = null;
+let db = null;
+let currentUser = null;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6xktN83m-OOgVd0hB_parZj0jcNTdd8w",
+  authDomain: "ohv-historias.firebaseapp.com",
+  projectId: "ohv-historias",
+  storageBucket: "ohv-historias.firebasestorage.app",
+  messagingSenderId: "503873499417",
+  appId: "1:503873499417:web:314356a07dc1f76ad39588",
+  measurementId: "G-1PJCJZX008"
+};
+
+try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    firebaseReady = true;
+    document.getElementById('firebase-status').textContent = 'Conectado';
+    document.getElementById('firebase-status').className = 'status-ok';
+    console.log('Firebase conectado');
+} catch (error) {
+    console.error(error);
+    document.getElementById('firebase-status').textContent = 'Error';
+    document.getElementById('firebase-status').className = 'status-bad';
+}
+
+function setAuthMessage(msg, isError=false) {
+    const el = document.getElementById('auth-message');
+    if(!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? '#b42318' : '#555';
+}
+
+function updatePublishDefaults() {
+    const titleEl = document.getElementById('publish-title');
+    if(titleEl && currentProject && !titleEl.value) titleEl.value = currentProject.name || 'Nueva obra';
+}
+
+function getAuthFields() {
+    return {
+        email: document.getElementById('auth-email').value.trim(),
+        password: document.getElementById('auth-password').value
+    };
+}
+
+async function ensureUserProfile(user) {
+    if(!db || !user) return;
+    await db.collection('usuarios').doc(user.uid).set({
+        email: user.email || '',
+        nombre: (user.email || '').split('@')[0] || 'usuario',
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+}
+
+async function registerUser() {
+    if(!firebaseReady) return setAuthMessage('Firebase no está conectado.', true);
+    const {email, password} = getAuthFields();
+    if(!email || !password) return setAuthMessage('Escribe correo y contraseña.', true);
     try {
-      const cred = await auth.createUserWithEmailAndPassword(
-        emailInput.value.trim(),
-        passwordInput.value
-      );
-
-      await db.collection("usuarios").doc(cred.user.uid).set({
-        email: cred.user.email,
-        nombre: cred.user.email.split("@")[0],
-        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      authEstado.textContent = "Cuenta creada: " + cred.user.email;
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await ensureUserProfile(cred.user);
+        setAuthMessage('Cuenta creada: ' + cred.user.email);
     } catch (error) {
-      authEstado.textContent = "Error al crear cuenta: " + error.message;
-      console.error(error);
+        console.error(error);
+        setAuthMessage('Error al crear cuenta: ' + error.message, true);
     }
-  });
+}
 
-  document.getElementById("btnLogin").addEventListener("click", async () => {
+async function loginUser() {
+    if(!firebaseReady) return setAuthMessage('Firebase no está conectado.', true);
+    const {email, password} = getAuthFields();
+    if(!email || !password) return setAuthMessage('Escribe correo y contraseña.', true);
     try {
-      const cred = await auth.signInWithEmailAndPassword(
-        emailInput.value.trim(),
-        passwordInput.value
-      );
-      authEstado.textContent = "Sesión iniciada: " + cred.user.email;
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        await ensureUserProfile(cred.user);
+        setAuthMessage('Sesión iniciada: ' + cred.user.email);
     } catch (error) {
-      authEstado.textContent = "Error al iniciar sesión: " + error.message;
-      console.error(error);
+        console.error(error);
+        setAuthMessage('Error al iniciar sesión: ' + error.message, true);
     }
-  });
+}
 
-  document.getElementById("btnLogout").addEventListener("click", async () => {
+async function logoutUser() {
+    if(!firebaseReady) return;
     try {
-      await auth.signOut();
-      authEstado.textContent = "Sesión cerrada";
+        await auth.signOut();
+        setAuthMessage('Sesión cerrada.');
     } catch (error) {
-      authEstado.textContent = "Error al cerrar sesión: " + error.message;
-      console.error(error);
+        console.error(error);
+        setAuthMessage('Error al cerrar sesión: ' + error.message, true);
     }
-  });
+}
 
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      authEstado.textContent = "Conectado como: " + user.email;
-    } else {
-      authEstado.textContent = "No has iniciado sesión";
+function cloneProjectForCloud(project) {
+    return JSON.parse(JSON.stringify(project));
+}
+
+function getProjectTextPreview(project) {
+    const text = (project.chapters || []).map(ch => ch.story || '').join('\n\n').trim();
+    return text.slice(0, 500);
+}
+
+async function publishCurrentProject() {
+    if(!firebaseReady) return alert('Firebase no está conectado.');
+    if(!auth.currentUser) return alert('Primero inicia sesión.');
+    if(!currentProject) return alert('No hay proyecto actual.');
+
+    const title = document.getElementById('publish-title').value.trim() || currentProject.name || 'Obra sin título';
+    const description = document.getElementById('publish-description').value.trim();
+    const publica = document.getElementById('publish-public').checked;
+    const payload = cloneProjectForCloud(currentProject);
+    payload.name = title;
+
+    const existingId = currentProject.cloudId || null;
+    const data = {
+        titulo: title,
+        descripcion: description,
+        publica,
+        autorId: auth.currentUser.uid,
+        autorEmail: auth.currentUser.email || '',
+        chapterCount: (payload.chapters || []).length,
+        preview: getProjectTextPreview(payload),
+        contenido: payload,
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        if(existingId) {
+            await db.collection('obras').doc(existingId).set(data, { merge: true });
+        } else {
+            data.creadoEn = firebase.firestore.FieldValue.serverTimestamp();
+            const ref = await db.collection('obras').add(data);
+            currentProject.cloudId = ref.id;
+            saveData();
+        }
+        alert('Proyecto publicado/actualizado en la nube.');
+        loadMyWorks();
+        loadPublicWorks();
+    } catch (error) {
+        console.error(error);
+        alert('Error al publicar: ' + error.message);
     }
-  });
+}
+
+function renderWorkCard(docSnap, targetEl, isMine=false) {
+    const data = docSnap.data();
+    const card = document.createElement('div');
+    card.className = 'work-card';
+
+    const h3 = document.createElement('h3');
+    h3.textContent = data.titulo || 'Sin título';
+
+    const desc = document.createElement('div');
+    desc.textContent = data.descripcion || data.preview || 'Sin descripción.';
+
+    const meta = document.createElement('div');
+    meta.className = 'work-meta';
+    meta.textContent = `Autor: ${data.autorEmail || 'desconocido'} • Capítulos: ${data.chapterCount || 0}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'card-actions';
+
+    const readBtn = document.createElement('button');
+    readBtn.className = 'small-btn';
+    readBtn.textContent = isMine ? 'Cargar al editor' : 'Leer / importar';
+    readBtn.onclick = async () => {
+        const snap = await db.collection('obras').doc(docSnap.id).get();
+        const fresh = snap.data();
+        if(!fresh || !fresh.contenido) return alert('La obra no tiene contenido válido.');
+        importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '');
+    };
+    actions.appendChild(readBtn);
+
+    if(isMine) {
+        const fillBtn = document.createElement('button');
+        fillBtn.className = 'small-btn';
+        fillBtn.textContent = 'Usar como actual';
+        fillBtn.onclick = async () => {
+            document.getElementById('publish-title').value = data.titulo || '';
+            document.getElementById('publish-description').value = data.descripcion || '';
+            document.getElementById('publish-public').checked = !!data.publica;
+            const snap = await db.collection('obras').doc(docSnap.id).get();
+            const fresh = snap.data();
+            if(fresh && fresh.contenido) importCloudProject(fresh.contenido, docSnap.id, fresh.descripcion || '');
+        };
+        actions.appendChild(fillBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.style.background = '#c0392b';
+        delBtn.textContent = 'Eliminar';
+        delBtn.onclick = async () => {
+            if(!confirm('¿Eliminar esta obra publicada?')) return;
+            try {
+                await db.collection('obras').doc(docSnap.id).delete();
+                if(currentProject && currentProject.cloudId === docSnap.id) {
+                    delete currentProject.cloudId;
+                    saveData();
+                }
+                loadMyWorks();
+                loadPublicWorks();
+            } catch (error) {
+                console.error(error);
+                alert('No se pudo eliminar: ' + error.message);
+            }
+        };
+        actions.appendChild(delBtn);
+    }
+
+    card.appendChild(h3);
+    card.appendChild(desc);
+    card.appendChild(meta);
+    card.appendChild(actions);
+    targetEl.appendChild(card);
+}
+
+async function loadMyWorks() {
+    const box = document.getElementById('my-works');
+    if(!box) return;
+    box.innerHTML = '<p class="muted">Cargando…</p>';
+    if(!firebaseReady || !auth.currentUser) {
+        box.innerHTML = '<p class="muted">Inicia sesión para ver tus obras publicadas.</p>';
+        return;
+    }
+    try {
+        const snap = await db.collection('obras').where('autorId', '==', auth.currentUser.uid).get();
+        box.innerHTML = '';
+        if(snap.empty) {
+            box.innerHTML = '<p class="muted">Todavía no has publicado obras.</p>';
+            return;
+        }
+        const docs = snap.docs.sort((a,b) => {
+            const av = a.data().actualizadoEn?.seconds || 0;
+            const bv = b.data().actualizadoEn?.seconds || 0;
+            return bv - av;
+        });
+        docs.forEach(docSnap => renderWorkCard(docSnap, box, true));
+    } catch (error) {
+        console.error(error);
+        box.innerHTML = '<p class="muted">Error al cargar tus obras: ' + error.message + '</p>';
+    }
+}
+
+async function loadPublicWorks() {
+    const box = document.getElementById('public-works');
+    if(!box) return;
+    box.innerHTML = '<p class="muted">Cargando…</p>';
+    if(!firebaseReady) {
+        box.innerHTML = '<p class="muted">Firebase no está conectado.</p>';
+        return;
+    }
+    try {
+        const snap = await db.collection('obras').where('publica', '==', true).get();
+        box.innerHTML = '';
+        if(snap.empty) {
+            box.innerHTML = '<p class="muted">No hay obras públicas todavía.</p>';
+            return;
+        }
+        const docs = snap.docs.sort((a,b) => {
+            const av = a.data().actualizadoEn?.seconds || 0;
+            const bv = b.data().actualizadoEn?.seconds || 0;
+            return bv - av;
+        });
+        docs.forEach(docSnap => renderWorkCard(docSnap, box, false));
+    } catch (error) {
+        console.error(error);
+        box.innerHTML = '<p class="muted">Error al cargar obras públicas: ' + error.message + '</p>';
+    }
+}
+
+function importCloudProject(projectData, cloudId=null, description='') {
+    try {
+        const importedProject = JSON.parse(JSON.stringify(projectData));
+        importedProject.id = importedProject.id || uid();
+        importedProject.cloudId = cloudId || importedProject.cloudId || null;
+        importedProject.chapters = importedProject.chapters || [];
+        importedProject.globalTags = importedProject.globalTags || [];
+        importedProject.tagColors = importedProject.tagColors || {};
+        importedProject.ideas = importedProject.ideas || [];
+        importedProject.characters = importedProject.characters || [];
+        importedProject.worldEntries = importedProject.worldEntries || [];
+        importedProject.boards = importedProject.boards || [];
+        importedProject.relationships = importedProject.relationships || [];
+        importedProject.timelineEvents = importedProject.timelineEvents || [];
+        importedProject.arcMaps = importedProject.arcMaps || [];
+        importedProject.mapPlaces = importedProject.mapPlaces || [];
+        importedProject.name = importedProject.name || 'Obra importada';
+        importedProject.description = description || importedProject.description || '';
+
+        const localCopy = {...importedProject, id: uid(), name: importedProject.name + ' (copia)'};
+        projects.push(localCopy);
+        saveData();
+        loadProject(localCopy);
+        renderProjectList();
+        renderChapterList();
+        document.getElementById('publish-title').value = importedProject.name || '';
+        document.getElementById('publish-description').value = description || '';
+        showPage('story');
+        alert('Obra cargada al editor como copia local.');
+    } catch (error) {
+        console.error(error);
+        alert('No se pudo importar la obra de la nube.');
+    }
+}
+
+function splitStoryIntoChapters(text) {
+    const clean = text.replace(/\r/g, '').trim();
+    const regex = /^(Cap[ií]tulo\s+\d+[^\n]*|Chapter\s+\d+[^\n]*|Parte\s+\d+[^\n]*|Acto\s+\d+[^\n]*)$/gim;
+    const matches = [...clean.matchAll(regex)];
+    if(matches.length === 0) {
+        return [{ name: 'Capítulo 1', story: clean }];
+    }
+    const chunks = [];
+    for(let i=0; i<matches.length; i++) {
+        const start = matches[i].index;
+        const end = i + 1 < matches.length ? matches[i+1].index : clean.length;
+        const heading = matches[i][0].trim();
+        const body = clean.slice(start + matches[i][0].length, end).trim();
+        chunks.push({ name: heading || `Capítulo ${i+1}`, story: body });
+    }
+    return chunks.filter(ch => ch.story || ch.name);
+}
+
+function createProjectFromImportedStory(projectName, text) {
+    const parsedChapters = splitStoryIntoChapters(text);
+    const project = {
+        id: uid(),
+        name: projectName || 'Obra importada',
+        chapters: parsedChapters.map((ch, index) => ({ id: uid(), name: ch.name || `Capítulo ${index+1}`, story: ch.story || '', locationId: '', characterIds: [] })),
+        globalTags: [], tagColors: {}, ideas: [], characters: [], worldEntries: [],
+        boards: [{ id: uid(), name: 'Plan general', columns: [{ id: uid(), name: 'Ideas', cards: [] }, { id: uid(), name: 'En proceso', cards: [] }, { id: uid(), name: 'Terminado', cards: [] }] }],
+        relationships: [], timelineEvents: [], arcMaps: [], mapPlaces: []
+    };
+    projects.push(project);
+    saveData();
+    loadProject(project);
+    renderProjectList();
+    renderChapterList();
+    document.getElementById('publish-title').value = project.name;
+    showPage('story');
+}
+
+function triggerFullStoryUpload() {
+    document.getElementById('full-story-file').click();
+}
+function triggerChapterUpload() {
+    document.getElementById('chapter-file').click();
+}
+
+function fileBaseName(name) {
+    return (name || 'archivo').replace(/\.[^.]+$/, '');
+}
+
+async function readTextFile(file) {
+    return await file.text();
+}
+
+document.getElementById('full-story-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try {
+        const text = await readTextFile(file);
+        if(file.name.toLowerCase().endsWith('.json')) {
+            const importedProject = JSON.parse(text);
+            importCloudProject(importedProject, null, importedProject.description || '');
+        } else {
+            createProjectFromImportedStory(fileBaseName(file.name), text);
+            alert('Obra importada.');
+        }
+    } catch (error) {
+        console.error(error);
+        alert('No se pudo leer el archivo: ' + error.message);
+    } finally {
+        e.target.value = '';
+    }
+});
+
+document.getElementById('chapter-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try {
+        const text = await readTextFile(file);
+        if(!currentProject) createProject(true);
+        const parsed = splitStoryIntoChapters(text);
+        parsed.forEach((ch, index) => {
+            chapters.push({ id: uid(), name: ch.name || `${fileBaseName(file.name)} ${index+1}`, story: ch.story || '', locationId: '', characterIds: [] });
+        });
+        saveData();
+        renderChapterList();
+        if(parsed.length) loadChapter(chapters[chapters.length - parsed.length]);
+        alert('Capítulo(s) añadidos al proyecto actual.');
+    } catch (error) {
+        console.error(error);
+        alert('No se pudo importar el capítulo: ' + error.message);
+    } finally {
+        e.target.value = '';
+    }
+});
+
+if(firebaseReady) {
+    auth.onAuthStateChanged(async (user) => {
+        currentUser = user || null;
+        document.getElementById('session-status').textContent = user ? ('Conectado como ' + user.email) : 'No has iniciado sesión';
+        if(user) {
+            await ensureUserProfile(user);
+            loadMyWorks();
+        } else {
+            document.getElementById('my-works').innerHTML = '<p class="muted">Inicia sesión para ver tus obras publicadas.</p>';
+        }
+        loadPublicWorks();
+    });
+} else {
+    document.getElementById('public-works').innerHTML = '<p class="muted">Firebase no está conectado.</p>';
+    document.getElementById('my-works').innerHTML = '<p class="muted">Firebase no está conectado.</p>';
+}
+
+updatePublishDefaults();
+window.addEventListener('load', () => {
+    updatePublishDefaults();
+    loadPublicWorks();
+});
 </script>
-</script>
-    <div id="authBox" style="padding:16px; border:1px solid #ccc; margin:16px 0;">
-  <h2>Cuenta</h2>
-  <input id="email" type="email" placeholder="Correo" style="display:block; margin:8px 0; width:300px;">
-  <input id="password" type="password" placeholder="Contraseña" style="display:block; margin:8px 0; width:300px;">
-  <button id="btnRegistro">Crear cuenta</button>
-  <button id="btnLogin">Iniciar sesión</button>
-  <button id="btnLogout">Cerrar sesión</button>
-  <p id="authEstado"></p>
-</div>
+
 </body>
 </html>
